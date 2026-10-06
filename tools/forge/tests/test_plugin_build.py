@@ -77,6 +77,16 @@ class CodecTests(unittest.TestCase):
         self.assertEqual(d["layout"], "raw")
         self.assertEqual(R.encode("MGEF", d), b"ABC")
 
+    def test_open_ended_padding(self):
+        # REFR XSED = Seed u8 + wbUnused(0): 1 byte or 4 bytes in vanilla (PC handoff 21)
+        for hx in ("a5", "a5ec0400", "83060f00"):
+            d = R.decode("REFR", "XSED", bytes.fromhex(hx))
+            self.assertEqual(d["layout"], "struct")
+            self.assertNotIn("tail", d)
+            self.assertEqual(R.encode("REFR", d).hex(), hx)
+        self.assertEqual(R.decode("REFR", "XSED", bytes.fromhex("a5ec0400"))["fields"]["Seed"], 0xA5)
+        self.assertEqual(R.encode("REFR", {"sig": "XSED", "fields": {"Seed": 7}}).hex(), "07")
+
     def test_bad_values_are_clear_errors(self):
         with self.assertRaisesRegex(R.CodecError, "not one of"):
             R.encode("SPEL", {"sig": "SPIT", "fields": {"Level": "Grandmaster"}})

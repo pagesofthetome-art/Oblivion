@@ -83,17 +83,23 @@ def decode(rec_sig: str, sub_sig: str, data: bytes, nth: int = 0) -> dict:
         return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
     if not fl or sum(f["size"] for f in fl) > len(data):
         return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
-    used = sum(f["size"] for f in fl)
+    # xEdit's wbUnused(0) as the last field = padding of any length to the end (REFR XSED: 1 or 4 bytes)
+    used = len(data) if _open_tail(fl) else sum(f["size"] for f in fl)
     out = {"sig": sub_sig, "layout": "struct", "fields": _decode_fields(fl, data[:used])}
     if used < len(data):
         out["tail"] = data[used:].hex()
     return out
 
 
+def _open_tail(fl) -> bool:
+    return bool(fl) and fl[-1]["type"] == "bytes" and fl[-1]["size"] == 0
+
+
 def _decode_fields(fl, data: bytes) -> dict:
     fields = {}
-    for name, f in zip(_field_names(fl), fl):
-        chunk = data[f["offset"]:f["offset"] + f["size"]]
+    for i, (name, f) in enumerate(zip(_field_names(fl), fl)):
+        end = len(data) if (i == len(fl) - 1 and _open_tail(fl)) else f["offset"] + f["size"]
+        chunk = data[f["offset"]:end]
         if f["type"] == "bytes":
             fields[name] = chunk.hex()
             continue
@@ -116,6 +122,8 @@ def _decode_fields(fl, data: bytes) -> dict:
 def _value(f: dict, v) -> bytes:
     if f["type"] == "bytes":
         b = bytes.fromhex(v) if isinstance(v, str) else bytes(v or b"")
+        if f["size"] == 0:            # open-ended padding: written as given (new records: none)
+            return b
         return b.ljust(f["size"], b"\0")[:f["size"]]
     if v is None:
         v = 0
@@ -194,7 +202,7 @@ def layout_check(path, sigs: set[str], limit_examples: int = 20) -> dict:
     """Decode and re-encode every subrecord of the given record types; report what round-trips."""
     import tes4_plugin as tp
     res = {"records": 0, "subrecords": 0, "identical": 0, "struct": 0, "array": 0, "raw": 0, "string": 0,
-           "with_tail": 0, "mismatch": 0, "examples": []}
+           "with_tail": 0, "mismatch": 0, "examples": [], "raw_by_sub": {}}
     for p, r in tp.iter_records(path, want=sigs):
         res["records"] += 1
         subs = [(s.sig, s.data) for s in r.subrecords()]
@@ -202,6 +210,10 @@ def layout_check(path, sigs: set[str], limit_examples: int = 20) -> dict:
         for (sig, data), d in zip(subs, dec):
             res["subrecords"] += 1
             res[d["layout"]] += 1
+            if d["layout"] == "raw":
+                why = "no layout" if not fixed_layout(sub_schema(r.sig, sig, d["nth"])) else "size mismatch"
+                key = f"{sig} ({why})"
+                res["raw_by_sub"][key] = res["raw_by_sub"].get(key, 0) + 1
             if d.get("tail"):
                 res["with_tail"] += 1
             try:

@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/21-forge-phase3a-rerun-pc-handoff.md`](21-forge-phase3a-rerun-pc-handoff.md): confirm the ESCE/array fix (SPEL+MGEF PASS), run `layout-check --all` on Oblivion.esm, rebuild Searing Bolt. Read-only on the game. |
-| **Branch** | `forge/phase3-plugin` |
-| **Send back** | §5 of the handoff (tests summary, PASS line, the full `--all` table) |
+| **Do now** | [`docs/22-forge-phase3a-allpass-pc-handoff.md`](22-forge-phase3a-allpass-pc-handoff.md): `layout-check --all` must PASS on Oblivion.esm (XSED fix), send the raw-subrecord list, check Knights.esp, rebuild Searing Bolt. Read-only on the game. |
+| **Branch** | `forge/phase3-plugin` (check it out yourself; helper 2 may have left the clone on another branch) |
+| **Send back** | §5 of the handoff |
 
 ## How this works
 
@@ -36,4 +36,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 18 | `18-forge-phase2-pc-run2-handoff.md`: knowledge store, run 2 | 20/20, phase 2 merged (PR #1) |
 | 19 | `19-forge-phase3-pc-recon-handoff.md`: phase 3 recon | done: vanilla bytes, bridge path bug, shared Plugins.txt/INI/Saves |
 | 20 | `20-forge-phase3a-pc-handoff.md`: phase 3a layout proof + Searing Bolt | ALCH/ENCH/INGR/SGST PASS; MGEF ESCE arrays fixed; sha256 matched; 3c decision A |
-| 21 | `21-forge-phase3a-rerun-pc-handoff.md`: array fix + full layout survey | **pending** |
+| 21 | `21-forge-phase3a-rerun-pc-handoff.md`: array fix + full layout survey | SPEL+MGEF PASS; --all 63 types, 0 mismatches, only REFR XSED tails (fixed) |
+| 22 | `22-forge-phase3a-allpass-pc-handoff.md`: --all must PASS + raw list | **pending** |

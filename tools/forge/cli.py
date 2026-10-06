@@ -478,7 +478,8 @@ def cmd_layout_check(argv: list[str]) -> int:
         out = {"pass": not bad, "types": len(per), "failing_types": sorted(bad),
                "per_type": {k: {x: v[x] for x in ("records", "subrecords", "identical", "mismatch", "with_tail",
                                                   "struct", "array", "string", "raw")} for k, v in per.items()},
-               "examples": {k: v["examples"] for k, v in bad.items()}}
+               "examples": {k: v["examples"] for k, v in bad.items()},
+               "raw_by_sub": {k: v["raw_by_sub"] for k, v in per.items() if v["raw_by_sub"]}}
         lines = [f"layout-check {path.name} --all: {'PASS' if not bad else 'FAIL'}  ({len(per)} record types)",
                  f"  {'type':<5} {'records':>8} {'subs':>8} {'identical':>9} {'mismatch':>8} {'tail':>5} "
                  f"{'struct':>7} {'array':>6} {'string':>7} {'raw':>7}"]
@@ -486,6 +487,14 @@ def cmd_layout_check(argv: list[str]) -> int:
             lines.append(f"  {k:<5} {v['records']:>8} {v['subrecords']:>8} {v['identical']:>9} {v['mismatch']:>8} "
                          f"{v['with_tail']:>5} {v['struct']:>7} {v['array']:>6} {v['string']:>7} {v['raw']:>7}"
                          + ("  <-- FAIL" if k in bad else ""))
+        raw_all = {}
+        for k, v in per.items():
+            for sub, n in v["raw_by_sub"].items():
+                raw_all[f"{k}.{sub}"] = n
+        if raw_all:
+            lines.append("  most common undecoded (raw) subrecords - they round-trip, but fields aren't named yet:")
+            for key, n in sorted(raw_all.items(), key=lambda x: -x[1])[:25]:
+                lines.append(f"    {n:>9}  {key}")
         for k in sorted(bad):
             for e in per[k]["examples"][:3]:
                 lines.append(f"  {'MISMATCH' if not e['ok'] else 'TAIL'} {e['record']} {e['sub']} ({e['size']} bytes): "

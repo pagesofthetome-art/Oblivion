@@ -50,7 +50,11 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - ALCH/ENCH/INGR/SGST **PASS** (2,118 records, 14,998 subrecords, all identical).
   - SPEL+MGEF: all 8,320 subrecords identical, but 33 MGEF `ESCE` left undecoded bytes. Fixed: xEdit arrays (ESCE and 20 other array subrecords) now decode as element lists.
   - Searing Bolt built with the same sha256 `95418054…`, lint clean; the dump matches Flash Bolt's layout. `forge cs health` OK (token path fixed).
-- [ ] 3a PC rerun (handoff 21): SPEL+MGEF PASS; `layout-check --all` table over every record type in Oblivion.esm, to find the next layout gaps.
+- [x] 3a PC rerun (handoff 21, `083659b`): 84 tests OK.
+  - SPEL+MGEF **PASS** (1,282 records, 8,320 subrecords, 41 arrays).
+  - `--all` over 63 record types: every subrecord identical, 0 mismatches. The only gap was 573 REFR `XSED` tails: xEdit's `wbUnused(0)` means "padding to the end" (XSED is 1 or 4 bytes). Fixed (open-ended trailing padding).
+  - Searing Bolt same sha256.
+- [ ] Handoff 22: `--all` must PASS on all 63 types. Collect the "raw" (round-trips, fields not named) breakdown that decides the next layout work (e.g. REFR DATA positions).
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
