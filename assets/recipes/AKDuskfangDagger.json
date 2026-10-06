@@ -1,0 +1,71 @@
+{
+  "id": "AKDuskfangDagger",
+  "description": "Example recipe: an original fullered dagger with gilded curved guard, ball pommel and leather grip.",
+  "generator": "blade_weapon",
+  "params": {
+    "blade_length": 24.0,
+    "blade_width": 3.6,
+    "blade_thickness": 0.7,
+    "tip_length": 6.0,
+    "taper": 0.3,
+    "fuller": 0.45,
+    "guard_style": "curved",
+    "guard_width": 7.5,
+    "guard_height": 1.2,
+    "guard_depth": 1.8,
+    "grip_length": 7.5,
+    "grip_radius": 0.85,
+    "pommel_style": "ball",
+    "pommel_radius": 1.25,
+    "segments": 12
+  },
+  "materials": {
+    "blade": {
+      "kind": "blade",
+      "color": "#cfd3d9",
+      "wear": 0.3,
+      "fuller": 0.35,
+      "edge": 0.12,
+      "seed": 11
+    },
+    "guard": {
+      "kind": "gold",
+      "color": "#b48c40",
+      "wear": 0.4,
+      "seed": 12
+    },
+    "grip": {
+      "kind": "leather",
+      "color": "#4a2c1a",
+      "wraps": 10,
+      "seed": 13
+    },
+    "pommel": {
+      "kind": "gold",
+      "color": "#b48c40",
+      "wear": 0.4,
+      "seed": 14
+    }
+  },
+  "texture_size": 512,
+  "normal_strength": 4.0,
+  "nif": {
+    "profile": "weapon",
+    "prn": "SideWeapon",
+    "mass": 3.0,
+    "havok_material": "metal",
+    "glossiness": 60.0
+  },
+  "paths": {
+    "mesh": "meshes\\AK\\Weapons\\DuskfangDagger.nif",
+    "texture": "textures\\AK\\Weapons\\DuskfangDagger.dds",
+    "icon": "textures\\menus\\icons\\AK\\Weapons\\DuskfangDagger.dds"
+  },
+  "record": {
+    "type": "WEAP",
+    "editor_id": "AKDuskfangDagger",
+    "name": "Duskfang",
+    "template": "WeapSilverDagger",
+    "notes": "Copy WeapSilverDagger's DATA (damage/speed/reach/value/weight/health) as the balance baseline, then adjust."
+  }
+}

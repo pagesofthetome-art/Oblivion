@@ -1,0 +1,10 @@
+{
+ "plugin": "AKEmberWard.esp",
+ "next": "000803",
+ "ids": {
+  "AKEmberWard": "000800",
+  "AKEmberWardScript": "000801",
+  "AKEmberPulses": "000802"
+ },
+ "retired": {}
+}

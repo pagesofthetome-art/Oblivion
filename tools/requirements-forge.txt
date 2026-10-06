@@ -1,0 +1,3 @@
+# TES4Forge (tools\forge) - python -m pip install -r tools\requirements-forge.txt
+# Only needed for .yaml specs; .json specs work with the standard library alone.
+pyyaml>=6.0

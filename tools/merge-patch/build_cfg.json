@@ -1,0 +1,141 @@
+{
+ "description": "Compatibility patch for the Oct 2026 new-mod batch on Oblivion Rebirth+. Merges NPC/quest/package/cell/dialogue edits from the new mods with Rebirth+ (OCO faces, level caps, UOP fixes). Mannimarco Resurrection site wins over one Minotaur Encampments camp. Built by Claude. Load LAST.",
+ "drop_installed": [
+  "Bounty Quests.esp"
+ ],
+ "new_order": [
+  "Cobl Main.esm",
+  "SettlementsOfCyrodiil.esm",
+  "Bounty Quests.esp",
+  "Daedric Quests Revised.esp",
+  "TimeEnough.esp",
+  "Extended Dialogue.esp",
+  "Choices and Consequences.esp",
+  "JoinTheBlackwoodCompany.esp",
+  "JoinTheMythicDawn.esp",
+  "Mages Guild Quests.esp",
+  "DarkBrotherhoodInfinitum.esp",
+  "DBAQ.esp",
+  "TheReturnOfTheDarkBrotherhood.esp",
+  "ThievesGuildInfinitum.esp",
+  "Steve - Thieves Guils HQ.esp",
+  "EBMGMagnified.esp",
+  "CountBravil.esp",
+  "Tales of Cyrodiil.esp",
+  "ReplayableRandomQuests.esp",
+  "TOTF.esp",
+  "MannimarcoComplete.esp",
+  "aaachzCastleMystery.esp",
+  "Kovahn.esp",
+  "House Valranis.esp",
+  "OwnableTavernRedone.esp",
+  "Region Revive - Lake Rumare.esp",
+  "AFK_Weye.esp",
+  "Rumare-AFK_Weye Patch.esp",
+  "Villages1.1.esp",
+  "ClearwaterFarms.esp",
+  "LegionOutposts.esp",
+  "MTCThievesGrotto.esp",
+  "Oranstad.esp",
+  "SOC-RegionalFarms.esp",
+  "SilverfishFalls.esp",
+  "WhiteRoseFarm.esp",
+  "WickmereFarm.esp",
+  "Cobl Glue.esp",
+  "Cobl Si.esp"
+ ],
+ "low_priority": [
+  "Extended Dialogue.esp"
+ ],
+ "merge_types": [
+  "NPC_",
+  "CREA",
+  "PACK",
+  "QUST",
+  "CLOT",
+  "ARMO",
+  "BOOK",
+  "FACT",
+  "IDLE",
+  "SPEL",
+  "DOOR",
+  "LVLI",
+  "WEAP",
+  "ENCH",
+  "CELL",
+  "INFO"
+ ],
+ "extra_paths": [
+  "/mnt/user-data/uploads/Games/_audit/rar/AFK_Weye Version 2_32-22828-2-32/02 Compatibility/Rumare-AFK_Weye Patch.esp",
+  "MTCThievesGrotto.esp"
+ ],
+ "world_edits": [
+  {
+   "type": "restore_land_and_disable",
+   "cells": [
+    [
+     51,
+     -3
+    ],
+    [
+     51,
+     -4
+    ]
+   ],
+   "disable_from": "Minotaur Encampments.esp"
+  },
+  {
+   "type": "land_from",
+   "plugin": "Villages1.1.esp",
+   "cells": [
+    [
+     -23,
+     15
+    ]
+   ]
+  },
+  {
+   "type": "land_from",
+   "plugin": "TheReturnOfTheDarkBrotherhood.esp",
+   "cells": [
+    [
+     -18,
+     3
+    ],
+    [
+     -17,
+     3
+    ],
+    [
+     6,
+     37
+    ]
+   ]
+  },
+  {
+   "type": "port_patch",
+   "path": "LegionOutposts-ThievesGrotto Patch.esp",
+   "cells": [
+    [
+     19,
+     -40
+    ],
+    [
+     20,
+     -40
+    ],
+    [
+     19,
+     -41
+    ],
+    [
+     20,
+     -41
+    ]
+   ],
+   "remap": {
+    "mtcthievesgrottov4.1.esp": "mtcthievesgrotto.esp"
+   }
+  }
+ ]
+}

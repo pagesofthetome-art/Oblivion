@@ -1,0 +1,20 @@
+{
+ "obse_functions.json": {
+  "source": "https://github.com/llde/xOBSE",
+  "commit": "f64a8fa0481e24b3e159d276b29b721a548876bf",
+  "command_table_sha256": "85bcc23169a3880b78335ed1e43b47f7150cf85887a0d4717b80bc7068a99729",
+  "note": "Signatures only; help strings not exported."
+ },
+ "vanilla_functions.json/vim": {
+  "source": "https://github.com/vim/vim/blob/master/runtime/syntax/obse.vim",
+  "sha256": "89b3facd56aff28b783b91d40beb11709966fe55f7991372f434f39239f731f6",
+  "license": "Vim licence"
+ },
+ "record_schemas.json": {
+  "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas",
+  "sha256": "76a649e7791c47dba17a54e55049f87fba76c776ff4eac5b61d61ae92fba98f0",
+  "license": "MPL-2.0 (xEdit)",
+  "common_source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsCommon.pas",
+  "common_sha256": "e616b6546f6df74d88ec98bb870906db380c985963d011e4931c5726682b7d26"
+ }
+}

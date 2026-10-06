@@ -1,0 +1,38 @@
+{
+  "id": "AKDuskfangDagger",
+  "recipe": "assets\\recipes\\AKDuskfangDagger.json",
+  "built": "2026-10-04T10:28:33",
+  "generator": "blade_weapon",
+  "profile": "weapon",
+  "files": [
+    "meshes\\AK\\Weapons\\DuskfangDagger.nif",
+    "textures\\AK\\Weapons\\DuskfangDagger.dds",
+    "textures\\AK\\Weapons\\DuskfangDagger_n.dds",
+    "textures\\menus\\icons\\AK\\Weapons\\DuskfangDagger.dds"
+  ],
+  "stats": {
+    "vertices": 456,
+    "triangles": 516,
+    "bounds_min": [
+      -3.75,
+      -6.45,
+      -1.23
+    ],
+    "bounds_max": [
+      3.75,
+      28.95,
+      1.23
+    ],
+    "texture_size": 512,
+    "bound_radius": 17.7
+  },
+  "record_hints": {
+    "MODL": "AK\\Weapons\\DuskfangDagger.nif",
+    "ICON": "AK\\Weapons\\DuskfangDagger.dds",
+    "type": "WEAP",
+    "editor_id": "AKDuskfangDagger",
+    "name": "Duskfang",
+    "template": "WeapSilverDagger",
+    "notes": "Copy WeapSilverDagger's DATA (damage/speed/reach/value/weight/health) as the balance baseline, then adjust."
+  }
+}

@@ -1,0 +1,50 @@
+# TES4Forge phase 3 acceptance spec: a fire-bolt variant built from records alone.
+#   forge spec check specs\ak-searing-bolt.yaml
+#   forge build specs\ak-searing-bolt.yaml
+# Reference: vanilla Flash Bolt (StandardFireDamageTarget2Apprentice, Oblivion.esm:0A97E0) is
+# FIDG 20 pts on target, no area, Apprentice, auto-calc cost (PC recon 2026-10-06).
+forge_spec: 1
+name: ak-searing-bolt
+kind: plugin
+intent: >
+  Searing Bolt: an Apprentice Destruction spell that hits the target for 30 fire damage in a
+  5-foot burst. A stronger Flash Bolt for testing TES4Forge's record builder.
+
+vars:
+  GOG_DATA: "C:/Users/Shadow/Desktop/Games/Oblivion/Data"
+
+output:
+  plugin: AKSearingBolt.esp
+  version: "1.0"
+  install_notes:
+    - "Test profile only until phase 3c signs it off."
+
+ids: ak-searing-bolt.ids.json        # EditorID -> FormID; append-only, commit it
+
+inputs: []
+dependencies:
+  masters: [Oblivion.esm]
+  runtime: []
+compatibility_targets: [Oblivion Rebirth+ (Steam, Vortex)]
+
+records:
+  - sig: SPEL
+    edid: AKSearingBolt
+    FULL: Searing Bolt
+    SPIT: {Type: Spell, Cost: 60, Level: Apprentice, Flags: []}   # Flags [] = auto-calc cost, like vanilla
+    effects:
+      - {effect: FIDG, magnitude: 30, area: 5, duration: 0, range: Target}
+
+scripts: []
+
+lint:
+  data: "${GOG_DATA}"
+
+expect:
+  # Built in the cloud (2026-10-06); the PC build must produce the same bytes.
+  sha256: 9541805498eb24ae876ecdf675e87792443195b1e5159ad6d7117197a1bc474b
+
+test_plan:
+  - "forge build: round-trip 0 mismatches, lint 0 errors."
+  - "forge dump the built SPEL next to Flash Bolt: same subrecord order (EDID FULL SPIT EFID EFIT); EFIT magnitude 30, area 5, range Target."
+  - "In game (test profile, phase 3c): player.addspell <load-order id>; cast at a target: about 30 fire damage plus a 5-ft burst."

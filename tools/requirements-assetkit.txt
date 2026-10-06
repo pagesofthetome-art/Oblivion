@@ -1,0 +1,5 @@
+# assetkit (tools\assetkit) dependencies - install with:  python -m pip install -r tools\requirements-assetkit.txt
+numpy>=1.24
+Pillow>=10.0
+# optional: tight convex-hull collision (otherwise bounding-box collision is used)
+scipy>=1.10

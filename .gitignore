@@ -1,0 +1,32 @@
+__pycache__/
+*.pyc
+controller_log*.txt
+freeze_report.txt
+.cs_bridge_token
+*.esp
+*.esm
+*.bsa
+*.7z
+*.rar
+*.zip
+research-extracts/
+tools-unpacked/
+Tool Downloads/
+_audit/
+# the PC clone's junction to the GOG game folder
+/Oblivion
+.cs_bridge_token
+
+# TES4Forge build output (contains records copied from third-party plugins)
+forge-builds/
+
+# TES4Forge knowledge store: built DB and Bethesda-derived exports stay local
+forge-kb.sqlite
+forge-kb.building
+vanilla_index.jsonl
+vanilla_commands.jsonl
+forge-script-corpus.jsonl*
+script_log.txt
+decode_log.txt
+check_log.txt
+kb_log.txt
