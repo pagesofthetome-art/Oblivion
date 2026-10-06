@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 URL = "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+COMMON_URL = "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsCommon.pas"
 LICENSE = "MPL-2.0 (xEdit)"
 SIG = re.compile(r"^[A-Z][A-Z0-9_]{3}$")
 INT_SIZE = {"itU8": 1, "itS8": 1, "itU16": 2, "itS16": 2, "itU32": 4, "itS32": 4, "itU64": 8, "itS64": 8}
@@ -126,13 +127,99 @@ def parse_defs(src: str):
         k, v = p.peek()
         if k == "id" and p.peek(1)[1] == ":=":
             p.take(); p.take()
-            vars_[v] = p.expr()
+            vars_[v.lower()] = p.expr()          # Pascal names are case-insensitive
             continue
         if k == "id" and v in ("wbRecord", "wbRefRecord") and p.peek(1)[1] == "(":
             records.append(p.expr())
             continue
         p.take()
     return vars_, records
+
+
+def parse_functions(src: str) -> dict[str, list[dict]]:
+    """`function wbX(params): T; begin Result := <expr>; end;` -> {name: [overloads]}.
+
+    Only the implementation part, and only functions whose body assigns Result directly.
+    Each overload: {"params": [(name, type, default node|None)], "body": node}.
+    """
+    impl = src[src.index("implementation"):]
+    toks = tokenize(impl)
+    out: dict[str, list[dict]] = {}
+    i = 0
+    while i < len(toks):
+        if toks[i] == ("id", "function") and i + 1 < len(toks) and toks[i + 1][0] == "id":
+            name = toks[i + 1][1]
+            j = i + 2
+            params = []
+            if j < len(toks) and toks[j][1] == "(":
+                depth, k = 1, j + 1
+                while k < len(toks) and depth:
+                    depth += {"(": 1, ")": -1}.get(toks[k][1], 0)
+                    k += 1
+                params = _parse_params(toks[j + 1:k - 1])
+                j = k
+            # find "begin" ... "Result :=" before the matching "end"
+            k = j
+            while k < len(toks) and toks[k] != ("id", "begin") and toks[k] != ("id", "function"):
+                k += 1
+            if k < len(toks) and toks[k] == ("id", "begin") and k + 3 < len(toks) and \
+                    toks[k + 1] == ("id", "Result") and toks[k + 2][1] == ":=":
+                pp = Parser(toks[k + 3:])
+                out.setdefault(name.lower(), []).append({"params": params, "body": pp.expr()})
+            i = k
+            continue
+        i += 1
+    return out
+
+
+def _parse_params(toks) -> list:
+    groups, cur, depth = [], [], 0
+    for t in toks:
+        if t[1] in "([":
+            depth += 1
+        elif t[1] in ")]":
+            depth -= 1
+        if t[1] == ";" and depth == 0:
+            groups.append(cur); cur = []
+        else:
+            cur.append(t)
+    if cur:
+        groups.append(cur)
+    out = []
+    for g in groups:
+        g = [t for t in g if t[1] not in ("const", "var", "out")]
+        if ":" not in [t[1] for t in g]:
+            continue
+        c = [t[1] for t in g].index(":")
+        names = [t[1] for t in g[:c] if t[0] == "id"]
+        rest = g[c + 1:]
+        typ = rest[0][1] if rest else ""
+        default = None
+        if "=" in [t[1] for t in rest]:
+            e = [t[1] for t in rest].index("=")
+            default = Parser(rest[e + 1:]).expr()
+        for n in names:
+            out.append((n, typ, default))
+    return out
+
+
+def _subst(node, env):
+    """Replace parameter identifiers with the call's arguments (deep copy)."""
+    if isinstance(node, list):
+        return [_subst(x, env) for x in node]
+    if not isinstance(node, dict):
+        return node
+    if "id" in node and node["id"].lower() in env:
+        r = dict(env[node["id"].lower()])
+        r["methods"] = list(r.get("methods", [])) + list(node.get("methods", []))
+        return r
+    out = {}
+    for k, v in node.items():
+        if k == "methods":
+            out[k] = [(m, _subst(a, env)) for m, a in v]
+        else:
+            out[k] = _subst(v, env)
+    return out
 
 
 def _name(args):
@@ -146,15 +233,59 @@ def _sigs(node):
     return [x["id"] for x in node.get("list", []) if "id" in x and SIG.match(x["id"])]
 
 
+PRIMITIVES = ("wbStruct", "wbInteger", "wbFloat", "wbFormID", "wbString", "wbLString", "wbArray", "wbRArray",
+              "wbRStruct", "wbRUnion", "wbUnion", "wbByteArray", "wbUnknown", "wbUnused", "wbEmpty", "wbEnum",
+              "wbFlags", "wbRecord", "wbRefRecord")
+
+
 class Interp:
-    def __init__(self, vars_):
+    def __init__(self, vars_, funcs=None):
         self.vars = vars_
+        self.funcs = funcs or {}
+
+    def expand(self, node):
+        """A call to a helper function (e.g. wbVec3PosRot(DATA)) -> its Result expression."""
+        fn = node.get("fn", "")
+        if not fn or fn.startswith(PRIMITIVES) or fn.lower() not in self.funcs:
+            return node
+        args = node.get("args", [])
+        first_sig = bool(args) and "id" in args[0] and SIG.match(args[0]["id"])
+        cands = [o for o in self.funcs[fn.lower()] if len(args) <= len(o["params"])
+                 and all(p[2] is not None for p in o["params"][len(args):])]
+        if first_sig:
+            cands = [o for o in cands if o["params"] and o["params"][0][1] == "TwbSignature"] or cands
+        else:
+            cands = [o for o in cands if not o["params"] or o["params"][0][1] != "TwbSignature"] or cands
+        if not cands:
+            return node
+        o = cands[0]
+        env = {}
+        for i, (pname, _t, default) in enumerate(o["params"]):
+            env[pname.lower()] = args[i] if i < len(args) else default
+        body = _subst(o["body"], env)
+        if isinstance(body, dict):
+            body["methods"] = list(body.get("methods", [])) + list(node.get("methods", []))
+        return body
 
     def resolve(self, node, depth=0):
-        while "id" in node and node["id"] in self.vars and depth < 20:
-            m = node.get("methods", [])
-            node = dict(self.vars[node["id"]])
-            node["methods"] = list(node.get("methods", [])) + m
+        while depth < 20:
+            if "id" in node and node["id"].lower() in self.vars:
+                m = node.get("methods", [])
+                node = dict(self.vars[node["id"].lower()])
+                node["methods"] = list(node.get("methods", [])) + m
+            elif "id" in node and node["id"].lower() in self.funcs:
+                # a bare helper name is a zero-argument call (wbNextSpeaker, wbLandHeights)
+                new = self.expand({"fn": node["id"], "args": [], "methods": node.get("methods", [])})
+                if new.get("fn") == node["id"]:
+                    break
+                node = new
+            elif "fn" in node:
+                new = self.expand(node)
+                if new is node:
+                    break
+                node = new
+            else:
+                break
             depth += 1
         return node
 
@@ -197,24 +328,37 @@ class Interp:
             elif fn.startswith("wbFormID"):
                 out.append((nm, "formid", 4, True))
             elif fn in ("wbUnused", "wbByteArray", "wbUnknown"):
-                n = next((int(x["num"]) for x in a if "num" in x), None)
+                # no size given = the rest of the subrecord (size 0, valid only as the last field)
+                n = next((int(x["num"]) for x in a if "num" in x), 0)
                 out.append((nm if fn != "wbUnused" else prefix + "unused", "bytes", n, False))
             elif fn.startswith("wbString"):
                 n = next((int(x["num"]) for x in a if "num" in x), 0)
                 out.append((nm, "string", n or None, False))
             elif fn.startswith("wbStruct"):
-                lsts = [x for x in a if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
+                ra = [self.resolve(x) if "id" in x else x for x in a]
+                lsts = [x for x in ra if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
                 out += self.fields(lsts[-1]["list"] if lsts else [], nm + ".")
             elif fn.startswith("wbUnion"):
                 lst = next((x for x in a if "list" in x), {"list": []})
                 alts = [self.fields([x]) for x in lst["list"]]
-                sizes = {sum(f[2] or 0 for f in alt) if all(f[2] for f in alt) else None for alt in alts}
+                # alternatives that resolve all share one size in TES4; unresolved ones don't veto it
+                sizes = {sum(f[2] for f in alt) for alt in alts if alt and all(f[2] for f in alt)}
                 formid = any(f[3] for alt in alts for f in alt)
                 out.append((nm, "union", sizes.pop() if len(sizes) == 1 else None, formid))
             elif fn.startswith("wbArray"):
-                out.append((nm, "array", None, any(f[3] for f in self.fields([x for x in a if "fn" in x]))))
+                el = self.fields([x for x in a if "fn" in x or ("id" in x and x["id"].lower() in self.vars)])
+                count = next((int(x["num"]) for x in a if "num" in x), None)
+                el_size = sum(f[2] for f in el) if el and all(f[2] for f in el) else None
+                formid = any(f[3] for f in el)
+                if count and el_size:
+                    # fixed-count array inside a struct (e.g. LAND VHGT 'Height Data'): opaque bytes
+                    out.append((nm, "bytes", count * el_size, formid))
+                else:
+                    out.append((nm, "array", None, formid))
             elif fn:
                 out.append((nm, fn, None, False))
+            elif it.get("id", "").lower() == "nil":
+                continue
             elif "id" in it:     # defined outside this file: size unknown, so later offsets are too
                 out.append((prefix + it["id"], "unresolved:" + it["id"], None, False))
         return out
@@ -251,7 +395,8 @@ class Interp:
                 if kind in ("struct",):
                     # the member list is the last list argument holding calls; wbStructSK puts a
                     # list of sort-key indexes ([4, 5]) before it
-                    lsts = [x for x in a if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
+                    ra = [self.resolve(x) if "id" in x else x for x in a]
+                    lsts = [x for x in ra if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
                     flds = self.fields(lsts[-1]["list"] if lsts else [])
                 elif kind in ("array", "union"):
                     flds = self.fields([x for x in a[1:] if "fn" in x or "id" in x])
@@ -263,6 +408,15 @@ class Interp:
                 return [{"sig": sig, "name": _name(a), "kind": kind, "required": required,
                          "repeating": repeating or fn.startswith("wbArray") and False, "group": group,
                          "formid": fid, "formid_targets": targets, "fields": flds}]
+        if fn == "wbTexturedModel":
+            # procedural in wbDefinitionsCommon.pas; its Oblivion branch is:
+            # [0] wbString 'Model Filename', [1] wbFloat 'Bound Radius', [2] wbModelInfo (texture hashes)
+            sigs = [x for a_ in a for x in _sigs(self.resolve(a_))]
+            kinds = [("string", "Model Filename", []), ("float", "Bound Radius", [("Bound Radius", "float", 4, False)]),
+                     ("bytes", "Model Info", [])]
+            return [{"sig": sg, "name": nm, "kind": k, "required": False, "repeating": repeating, "group": group,
+                     "formid": False, "formid_targets": [], "fields": fl}
+                    for sg, (k, nm, fl) in zip(sigs, kinds)]
         # helper call (e.g. a model/texture helper): list every signature it mentions
         out = []
         for x in a:
@@ -276,10 +430,14 @@ class Interp:
         return out
 
 
-def extract(pas_file: Path) -> list[dict]:
+def extract(pas_file: Path, common_file: Path | None = None) -> list[dict]:
     src = Path(pas_file).read_text("utf-8", "replace")
     vars_, recs = parse_defs(src)
-    ip = Interp(vars_)
+    funcs = parse_functions(src)
+    if common_file and Path(common_file).is_file():
+        for k, v in parse_functions(Path(common_file).read_text("utf-8", "replace")).items():
+            funcs.setdefault(k, v)
+    ip = Interp(vars_, funcs)
     out = []
     for r in recs:
         a = r["args"]

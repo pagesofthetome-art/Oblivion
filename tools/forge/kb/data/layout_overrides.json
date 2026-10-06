@@ -1,6 +1,36 @@
 {
  "_about": "Layout facts the xEdit extractor can't see (defined in xEdit's common units). Each entry names its evidence.",
  "enums": {
-  "EFIT.Type": {"values": ["Self", "Touch", "Target"], "source": "xEdit wbDefinitionsCommon wbEffectTypeEnum; PC recon 2026-10-06: vanilla Flare/Flash Bolt EFIT range 2 = Target", "confidence": "CONFIRMED_MULTI_SOURCE"}
+  "EFIT.Type": {
+   "values": [
+    "Self",
+    "Touch",
+    "Target"
+   ],
+   "source": "xEdit wbDefinitionsCommon wbEffectTypeEnum; PC recon 2026-10-06: vanilla Flare/Flash Bolt EFIT range 2 = Target",
+   "confidence": "CONFIRMED_MULTI_SOURCE"
+  }
+ },
+ "field_sizes": {
+  "CTDA.Parameter #1": {
+   "size": 4,
+   "source": "xEdit wbConditionParameters (all alternatives are 4-byte ints/FormIDs; built at runtime, so the extractor can't size it); tools/merge-patch/patchlib.py reads CTDA FormIDs at offsets 12 and 16",
+   "confidence": "HIGH_CONFIDENCE"
+  },
+  "CTDA.Parameter #2": {
+   "size": 4,
+   "source": "as Parameter #1",
+   "confidence": "HIGH_CONFIDENCE"
+  },
+  "CTDT.Parameter #1": {
+   "size": 4,
+   "source": "as CTDA",
+   "confidence": "HIGH_CONFIDENCE"
+  },
+  "CTDT.Parameter #2": {
+   "size": 4,
+   "source": "as CTDA",
+   "confidence": "HIGH_CONFIDENCE"
+  }
  }
 }

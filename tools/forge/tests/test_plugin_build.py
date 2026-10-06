@@ -87,6 +87,35 @@ class CodecTests(unittest.TestCase):
         self.assertEqual(R.decode("REFR", "XSED", bytes.fromhex("a5ec0400"))["fields"]["Seed"], 0xA5)
         self.assertEqual(R.encode("REFR", {"sig": "XSED", "fields": {"Seed": 7}}).hex(), "07")
 
+    def test_layouts_from_xedit_common_helpers(self):
+        import struct
+        # REFR DATA = wbVec3PosRot (6 floats), resolved through wbDefinitionsCommon.pas
+        data = struct.pack("<6f", 1.5, -2.0, 300.0, 0.0, 0.5, 3.14)
+        d = R.decode("REFR", "DATA", data)
+        self.assertEqual(d["fields"]["Position.X"], 1.5)
+        self.assertEqual(R.encode("REFR", d), data)
+        # CTDA: 24 bytes in vanilla (20 named + 4 trailing unused); params at 12 and 16 as in patchlib
+        ctda = bytes.fromhex("00cdcdcd" "0000803f" "4800" "cdcd" "14000000" "00000000" "cdcdcdcd")
+        d = R.decode("INFO", "CTDA", ctda)
+        self.assertEqual((d["layout"], d["fields"]["Function"], d["fields"]["Parameter #1"]), ("struct", 0x48, "14000000"))
+        self.assertEqual(R.encode("INFO", d), ctda)
+        # SCPT SLSD: 24 bytes, ends in an unsized byte array
+        slsd = bytes.fromhex("01000000" + "00" * 12 + "01" + "cd" * 7)
+        self.assertEqual(R.encode("SCPT", R.decode("SCPT", "SLSD", slsd)), slsd)
+        # LAND VHGT: offset + 33x33 heights + 3 unused = 1096 bytes
+        vhgt = struct.pack("<f", 12.0) + bytes(range(256)) * 4 + bytes(65) + b"\xcd\xcd\xcd"
+        self.assertEqual(len(vhgt), 1096)
+        d = R.decode("LAND", "VHGT", vhgt)
+        self.assertEqual((d["layout"], d["fields"]["Offset"]), ("struct", 12.0))
+        self.assertEqual(R.encode("LAND", d), vhgt)
+
+    def test_float_nan_payload_survives(self):
+        odd_nan = bytes.fromhex("0100807f")          # signaling NaN: float conversion would quiet it, so it stays hex
+        data = odd_nan + bytes(20)
+        d = R.decode("REFR", "DATA", data)
+        self.assertTrue(str(d["fields"]["Position.X"]).startswith("hex:"))
+        self.assertEqual(R.encode("REFR", d), data)
+
     def test_bad_values_are_clear_errors(self):
         with self.assertRaisesRegex(R.CodecError, "not one of"):
             R.encode("SPEL", {"sig": "SPIT", "fields": {"Level": "Grandmaster"}})

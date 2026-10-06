@@ -27,7 +27,8 @@ def schemas() -> dict:
     """{record sig: [subrecord schema, ...]} with overrides applied."""
     global _SCHEMAS
     if _SCHEMAS is None:
-        over = json.loads((DATA / "layout_overrides.json").read_text(encoding="utf-8"))["enums"]
+        ov = json.loads((DATA / "layout_overrides.json").read_text(encoding="utf-8"))
+        over, sizes = ov["enums"], ov.get("field_sizes", {})
         out = {}
         for r in json.loads((DATA / "record_schemas.json").read_text(encoding="utf-8")):
             for s in r["subrecords"]:
@@ -35,6 +36,14 @@ def schemas() -> dict:
                     o = over.get(f"{s['sig']}.{f['name']}")
                     if o and "enum" not in f:
                         f["enum"] = o["values"]
+                    z = sizes.get(f"{s['sig']}.{f['name']}")
+                    if z and f["size"] is None:
+                        f["size"] = z["size"]
+                # recompute offsets after size overrides
+                off = 0
+                for f in s["fields"]:
+                    f["offset"] = off
+                    off = None if off is None or f["size"] is None else off + f["size"]
             out[r["sig"]] = r["subrecords"]
         _SCHEMAS = out
     return _SCHEMAS
@@ -50,9 +59,15 @@ def fixed_layout(sch: dict | None) -> list[dict] | None:
     """Fields with known offsets and sizes covering the subrecord, or None."""
     if not sch or not sch["fields"]:
         return None
-    fl = sch["fields"]
+    fl = [dict(f) for f in sch["fields"]]
+    for f in fl:
+        # a union of fixed size is kept as raw bytes (its meaning depends on another field)
+        if f["type"] == "union" and f["size"]:
+            f["type"] = "bytes"
     if any(f["size"] is None or f["offset"] is None or f["type"] not in PACK and f["type"] != "bytes" for f in fl):
         return None
+    if any(f["type"] == "bytes" and f["size"] == 0 for f in fl[:-1]):
+        return None                # open-ended padding is only valid at the end
     return fl
 
 
@@ -104,6 +119,9 @@ def _decode_fields(fl, data: bytes) -> dict:
             fields[name] = chunk.hex()
             continue
         v = struct.unpack(PACK[f["type"]], chunk)[0]
+        if f["type"] == "float" and struct.pack("<f", v) != chunk:
+            fields[name] = "hex:" + chunk.hex()        # NaN payloads don't survive float<->bytes
+            continue
         if f.get("char4"):
             v = chunk.decode("latin-1") if all(32 <= c < 127 for c in chunk) else v
         elif f.get("enum") and isinstance(v, int) and 0 <= v < len(f["enum"]) and f["enum"][v]:
@@ -127,6 +145,8 @@ def _value(f: dict, v) -> bytes:
         return b.ljust(f["size"], b"\0")[:f["size"]]
     if v is None:
         v = 0
+    if isinstance(v, str) and v.startswith("hex:"):
+        return bytes.fromhex(v[4:])
     if f.get("char4") and isinstance(v, str):
         if len(v) != 4:
             raise CodecError(f"{f['name']}: 4-character code expected, got {v!r}")

@@ -54,7 +54,18 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - SPEL+MGEF **PASS** (1,282 records, 8,320 subrecords, 41 arrays).
   - `--all` over 63 record types: every subrecord identical, 0 mismatches. The only gap was 573 REFR `XSED` tails: xEdit's `wbUnused(0)` means "padding to the end" (XSED is 1 or 4 bytes). Fixed (open-ended trailing padding).
   - Searing Bolt same sha256.
-- [ ] Handoff 22: `--all` must PASS on all 63 types. Collect the "raw" (round-trips, fields not named) breakdown that decides the next layout work (e.g. REFR DATA positions).
+- [x] Handoff 22 (`06ad4fd`): 85 tests OK.
+  - `--all` **PASS** on Oblivion.esm (63 types) and Knights.esp (37 types).
+  - Top raw subrecords: REFR DATA 1.03M, LAND ATXT/VTXT/BTXT/VNML/VHGT/VCLR, INFO CTDA/DATA, NPC_/CONT CNTO, LVLI LVLO, SCPT SLSD, PACK PKDT/PLDT, STAT MODL/MODB, NPC_ SNAM, REFR XLOD/XTEL.
+- [x] Layout coverage, cloud. The xEdit extractor now handles:
+  - case-insensitive Pascal names (`wbCNTOS`/`wbCNTOs`);
+  - list variables (`wbConditionMembers`);
+  - helper functions from `wbDefinitionsCommon.pas` (`wbVec3PosRot`, `wbNextSpeaker`, `wbLand*`), with arguments and defaults bound;
+  - fixed-count nested arrays;
+  - unsized trailing byte arrays.
+
+  Unions become sized raw bytes. Overrides: CTDA parameter sizes (from patchlib's offsets 12/16) and the `wbTexturedModel` Oblivion branch. Floats whose bytes don't survive (signaling NaN) are kept as hex. Every top-25 raw subrecord now has a layout, except PGRD PGRR (variable per point) and PACK PKDT (a union of 4 or 8 bytes).
+- [ ] Handoff 23: `--all` must still PASS on the PC, with the raw list much shorter.
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.

@@ -59,9 +59,13 @@ def refresh(xobse_root: Path | None, xedit_pas: Path | None, vim_file: Path | No
             prov["vanilla_functions.json/vim"] = {"source": vim.URL, "sha256": _sha(vim_file),
                                                   "license": "Vim licence"}
     if xedit_pas:
-        recs = xedit.extract(xedit_pas)
+        common = Path(xedit_pas).with_name("wbDefinitionsCommon.pas")   # helper functions (wbVec3PosRot, ...)
+        recs = xedit.extract(xedit_pas, common if common.is_file() else None)
         _dump("record_schemas.json", recs)
         prov["record_schemas.json"] = {"source": xedit.URL, "sha256": _sha(xedit_pas), "license": xedit.LICENSE}
+        if common.is_file():
+            prov["record_schemas.json"]["common_source"] = xedit.COMMON_URL
+            prov["record_schemas.json"]["common_sha256"] = _sha(common)
         counts["record_types"] = len(recs)
     _dump("provenance.json", prov)
     return counts
