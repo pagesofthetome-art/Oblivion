@@ -41,6 +41,20 @@ class DumpTests(unittest.TestCase):
         rows = dump.dump(self.fx["installed"] / "Oblivion.esm", sig="SPEL", limit=2)
         self.assertEqual([x["sig"] for x in rows], ["SPEL", "SPEL"])
 
+    def test_ctda_shows_operator_and_full_tail(self):
+        # vanilla-shaped 24-byte CTDA (PC handoff 24): Type 160 = Less Than Or Equal To, 4 trailing bytes
+        import struct as st
+        from types import SimpleNamespace
+        data = bytes([160, 0xCD, 0xCD, 0xCD]) + st.pack("<f", 5.0) + st.pack("<H", 225) + b"\xcd\xcd" + \
+            b"\0" * 8 + b"\xde\xad\xbe\xef"
+        fake_plugin = SimpleNamespace(global_key=lambda v: ("oblivion.esm", v & 0xFFFFFF))
+        from forge import records as R
+        rows = dump.decode(fake_plugin, "INFO", SimpleNamespace(sig="CTDA", data=data), R.sub_schema("INFO", "CTDA"))
+        vals = {r["name"]: r["value"] for r in rows}
+        self.assertTrue(vals["Type"].startswith("Less Than Or Equal To"))
+        self.assertEqual(vals["Function"], 225)
+        self.assertEqual([v for k, v in vals.items() if k.startswith("unused")][-1], "deadbeef")
+
     def test_cli(self):
         out = io.StringIO()
         with redirect_stdout(out):

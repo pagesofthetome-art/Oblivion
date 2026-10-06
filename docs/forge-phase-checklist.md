@@ -75,9 +75,13 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - Unions with 0/4-byte alternatives chosen by size → REFR XLOC 12/16.
   - `forge dump --has SIG`.
   - The fixture INFO TRDT is now 16 bytes, like vanilla.
-- [ ] Handoff 24: `--all` PASS on Oblivion.esm and Knights.esp, with the size mismatches gone.
+- [x] Handoff 24 (`36cef6e`): 88 tests OK.
+  - `--all` **PASS** on Oblivion.esm (63) and Knights.esp (37); the XLOC/XNAM/LIGH variants decode, and CLMT TNAM has its Moons byte.
+  - Still raw: script source/bytecode, model texture hashes, PGRD PGRR/PGRL, PACK PKDT.
+  - `forge dump` now uses the codec (open tails, variants) and names the CTDA operator (160 = Less Than Or Equal To).
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
-- [ ] 3b recon (handoff 25, CS launch approved by Yuri 2026-10-06): script editor controls, good-compile and error behaviour through the bridge; nothing saved.
+- [x] 3b recon take 1 (handoff 25): blocked. `obse_loader -editor` loads the Construction Set Extender v11, which refuses to run without admin rights. Nothing was saved.
+- [ ] 3b recon take 2 (handoff 26): plain `TESConstructionSet.exe` (no OBSE/CSE, vanilla syntax), plus facts for compiling OBSE syntax later. **Open decision for Yuri:** run elevated (bridge too) vs temporarily disable CSE for forge compiles.
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 

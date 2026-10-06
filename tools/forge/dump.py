@@ -43,53 +43,44 @@ def _fid(plugin, v: int) -> str:
     return f"{k[0]}:{k[1]:06X}" if k else f"?:{v:08X}"
 
 
-def decode(plugin, rec_sig: str, sub, schema: dict | None) -> list[dict]:
-    """Decode a subrecord's fields where the schema gives fixed offsets."""
+CTDA_OPERATORS = {0: "Equal To", 32: "Not Equal To", 64: "Greater Than", 96: "Greater Than Or Equal To",
+                  128: "Less Than", 160: "Less Than Or Equal To"}   # xEdit wbConditionTypeToStr (top 3 bits)
+
+
+def decode(plugin, rec_sig: str, sub, schema: dict | None, nth: int = 0) -> list[dict]:
+    """Decode a subrecord for display with the same codec forge builds with (forge/records.py)."""
+    from forge import records as R
     if not schema:
         return []
-    d = sub.data
-    if schema["kind"] == "string":
-        return [{"name": schema["name"], "value": tp.zstring(d)}]
-    if schema["kind"] == "array":
-        from forge import records as R
-        dec = R.decode(rec_sig, sub.sig, d)
-        if dec["layout"] == "array":
-            out = []
-            for i, item in enumerate(dec["items"]):
-                for k, v in item.items():
-                    if any(f["name"] == k and f["formid"] for f in schema["fields"]) and isinstance(v, str):
-                        v = _fid(plugin, int(v, 16))
-                    out.append({"name": f"[{i}] {k}", "value": v})
-            return out
+    dec = R.decode(rec_sig, sub.sig, sub.data, nth)
+    if dec["layout"] == "string":
+        return [{"name": schema["name"] or "text", "value": dec["value"]}]
+    if dec["layout"] == "array":
+        out = []
+        for i, item in enumerate(dec["items"]):
+            for k, v in item.items():
+                if any(f["name"] == k and f["formid"] for f in schema["fields"]) and isinstance(v, str):
+                    v = _fid(plugin, int(v, 16))
+                out.append({"name": f"[{i}] {k}", "value": v})
+        return out
+    if dec["layout"] != "struct":
+        if schema["kind"] == "formid" and len(sub.data) == 4:
+            return [{"name": schema["name"], "value": _fid(plugin, struct.unpack("<I", sub.data)[0])}]
         return []
-    if schema["kind"] == "formid" and len(d) >= 4:
-        return [{"name": schema["name"], "value": _fid(plugin, struct.unpack_from("<I", d)[0])}]
+    lay = R.fixed_layout(R.sub_schema(rec_sig, sub.sig, nth), len(sub.data)) or []
+    by_name = dict(zip(R._field_names(lay), lay))
     out = []
-    for f in schema.get("fields", []):
-        o, size, typ = f["offset"], f["size"], f["type"]
-        if o is None or size is None or o + size > len(d):
-            break
-        if typ in FMT:
-            v = struct.unpack_from(FMT[typ], d, o)[0]
-            raw = d[o:o + size]
-            if f["formid"]:
-                v = _fid(plugin, v)
-            elif typ == "float":
-                v = round(v, 4)
-            elif f.get("char4") and all(32 <= c < 127 for c in raw):
-                v = raw.decode("latin-1")
-            elif f.get("enum") and 0 <= v < len(f["enum"]) and f["enum"][v]:
-                v = f"{f['enum'][v]} ({v})"
-            elif f.get("flags"):
-                names = [f["flags"][i] for i in range(len(f["flags"])) if v >> i & 1]
-                v = f"{v:#x} {names}" if names else v
-        elif typ == "bytes":
-            v = d[o:o + size].hex()
-        elif typ == "string":
-            v = tp.zstring(d[o:o + size])
-        else:
-            v = d[o:o + size].hex()
-        out.append({"name": f["name"], "offset": o, "type": typ, "value": v})
+    for name, v in dec["fields"].items():
+        f = by_name.get(name, {})
+        if f.get("formid") and isinstance(v, str) and len(v) == 8:
+            v = _fid(plugin, int(v, 16))
+        elif sub.sig in ("CTDA", "CTDT") and name == "Type" and isinstance(v, int):
+            v = f"{CTDA_OPERATORS.get(v & 0xE0, '?')} (flags {v & 0x1F:#x}) [{v}]"
+        elif isinstance(v, list):
+            v = f"{v}"
+        out.append({"name": name, "offset": f.get("offset"), "type": f.get("type"), "value": v})
+    if dec.get("tail"):
+        out.append({"name": "(tail)", "value": dec["tail"]})
     return out
 
 
@@ -121,10 +112,13 @@ def dump(path: Path, selector=None, sig=None, match=None, limit=5, has=None) -> 
     out = []
     for p, r in find(path, selector, sig, match, limit, has):
         sch = schemas.get(r.sig, {})
+        from forge import records as R
+        raw = r.subrecords()
+        decs = R.decode_record(r.sig, [(x.sig, x.data) for x in raw])
         subs = []
-        for s in r.subrecords():
+        for s, d in zip(raw, decs):
             subs.append({"sig": s.sig, "size": len(s.data), "hex": s.data.hex(),
-                         "fields": decode(p, r.sig, s, sch.get(s.sig))})
+                         "fields": decode(p, r.sig, s, R.sub_schema(r.sig, s.sig, d["nth"]) or sch.get(s.sig), d["nth"])})
         out.append({"plugin": p.name, "sig": r.sig, "formid": f"{r.form_id:08X}", "key": _fid(p, r.form_id),
                     "edid": r.editor_id, "flags": f"{r.flags:08X}", "compressed": r.is_compressed,
                     "masters": p.masters, "subrecords": subs})

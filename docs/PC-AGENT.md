@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | 1) [`docs/24-forge-layout-variants-pc-handoff.md`](24-forge-layout-variants-pc-handoff.md): layout survey (read-only). 2) then [`docs/25-forge-phase3b-cs-recon-pc-handoff.md`](25-forge-phase3b-cs-recon-pc-handoff.md): Construction Set script-editor recon through the bridge. The CS launch is **approved by Yuri**; nothing is saved. |
+| **Do now** | [`docs/26-forge-phase3b-plain-cs-recon-pc-handoff.md`](26-forge-phase3b-plain-cs-recon-pc-handoff.md): CS script-editor recon with the **plain** `TESConstructionSet.exe` (no OBSE, no CSE, no admin), plus read-only facts for the later script-extender decision. CS launch approved by Yuri; nothing is saved. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | §5 of handoff 24 and §8 of handoff 25 (two reports, or one with both) |
+| **Send back** | §8 of handoff 26 |
 
 ## How this works
 
@@ -39,5 +39,6 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 21 | `21-forge-phase3a-rerun-pc-handoff.md`: array fix + full layout survey | SPEL+MGEF PASS; --all 63 types, 0 mismatches, only REFR XSED tails (fixed) |
 | 22 | `22-forge-phase3a-allpass-pc-handoff.md`: --all must PASS + raw list | PASS on Oblivion.esm (63 types) + Knights.esp (37); raw list received; Track E merge: not yet |
 | 23 | `23-forge-layout-coverage-pc-handoff.md`: layout coverage (most raw now named) | all bytes identical; CLMT TNAM tail + 3 size variants (fixed); top raw down to 8,181 |
-| 24 | `24-forge-layout-variants-pc-handoff.md`: layout variants | **pending** |
-| 25 | `25-forge-phase3b-cs-recon-pc-handoff.md`: CS script-editor recon (CS launch approved) | **pending** |
+| 24 | `24-forge-layout-variants-pc-handoff.md`: layout variants | PASS Oblivion.esm (63) + Knights.esp (37); variants fixed; raw now scripts/model hashes/PGRR/PKDT |
+| 25 | `25-forge-phase3b-cs-recon-pc-handoff.md`: CS script-editor recon (CS launch approved) | blocked: `obse_loader -editor` loads CSE v11, which needs admin |
+| 26 | `26-forge-phase3b-plain-cs-recon-pc-handoff.md`: recon with the plain CS + facts for the OBSE decision | **pending** |
