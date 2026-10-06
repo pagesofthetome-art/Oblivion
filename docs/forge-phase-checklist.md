@@ -77,6 +77,7 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - The fixture INFO TRDT is now 16 bytes, like vanilla.
 - [ ] Handoff 24: `--all` PASS on Oblivion.esm and Knights.esp, with the size mismatches gone.
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
+- [ ] 3b recon (handoff 25, CS launch approved by Yuri 2026-10-06): script editor controls, good-compile and error behaviour through the bridge; nothing saved.
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 

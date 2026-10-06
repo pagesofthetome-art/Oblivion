@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/24-forge-layout-variants-pc-handoff.md`](24-forge-layout-variants-pc-handoff.md): survey must PASS with the CLMT TNAM / XLOC / XNAM / LIGH DATA variants decoded; 4 spot dumps with `--has`. Read-only on the game. |
+| **Do now** | 1) [`docs/24-forge-layout-variants-pc-handoff.md`](24-forge-layout-variants-pc-handoff.md): layout survey (read-only). 2) then [`docs/25-forge-phase3b-cs-recon-pc-handoff.md`](25-forge-phase3b-cs-recon-pc-handoff.md): Construction Set script-editor recon through the bridge. The CS launch is **approved by Yuri**; nothing is saved. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | §5 of the handoff |
+| **Send back** | §5 of handoff 24 and §8 of handoff 25 (two reports, or one with both) |
 
 ## How this works
 
@@ -40,3 +40,4 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 22 | `22-forge-phase3a-allpass-pc-handoff.md`: --all must PASS + raw list | PASS on Oblivion.esm (63 types) + Knights.esp (37); raw list received; Track E merge: not yet |
 | 23 | `23-forge-layout-coverage-pc-handoff.md`: layout coverage (most raw now named) | all bytes identical; CLMT TNAM tail + 3 size variants (fixed); top raw down to 8,181 |
 | 24 | `24-forge-layout-variants-pc-handoff.md`: layout variants | **pending** |
+| 25 | `25-forge-phase3b-cs-recon-pc-handoff.md`: CS script-editor recon (CS launch approved) | **pending** |
