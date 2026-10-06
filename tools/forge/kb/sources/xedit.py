@@ -246,8 +246,8 @@ class Interp:
     def expand(self, node):
         """A call to a helper function (e.g. wbVec3PosRot(DATA)) -> its Result expression."""
         fn = node.get("fn", "")
-        if not fn or fn.startswith(PRIMITIVES) or fn.lower() not in self.funcs:
-            return node
+        if not fn or fn.startswith(PRIMITIVES) or fn in ("IfThen", "IsTES4") or fn.lower() not in self.funcs:
+            return node                     # IfThen is decided by if_then(), not expanded
         args = node.get("args", [])
         first_sig = bool(args) and "id" in args[0] and SIG.match(args[0]["id"])
         cands = [o for o in self.funcs[fn.lower()] if len(args) <= len(o["params"])
@@ -312,11 +312,39 @@ class Interp:
                 return {"char4": True}
         return None
 
+    def pick_game(self, node):
+        """xEdit's per-game selector IsTES4(<Oblivion value>, <other games>) -> the Oblivion value."""
+        if node.get("fn") == "IsTES4" and node.get("args"):
+            return self.resolve(node["args"][0]) if "fn" in node["args"][0] or "id" in node["args"][0] \
+                else node["args"][0]
+        return node
+
+    def if_then(self, node):
+        """Delphi IfThen(cond, a, b): Assigned(<bound arg>) -> a; wbSimpleRecords -> b; else a."""
+        a = node.get("args", [])
+        if len(a) < 2:
+            return node
+        cond = self.resolve(a[0]) if "id" in a[0] else a[0]
+        if cond.get("fn") == "Assigned":
+            arg = (cond.get("args") or [{}])[0]
+            take_then = not (arg.get("id", "").lower() == "nil")
+        elif a[0].get("id", "").lower() == "wbsimplerecords":
+            take_then = False
+        else:
+            take_then = True
+        pick = a[1] if take_then else (a[2] if len(a) > 2 else {"id": "nil"})
+        return self.resolve(pick) if isinstance(pick, dict) else pick
+
     def fields(self, items, prefix=""):
-        """Flatten struct members to (name, type, size|None, formid)."""
+        """Flatten struct members to (name, type, size|None, formid[, extra])."""
         out = []
         for it in items:
             it = self.resolve(it)
+            it = self.pick_game(it)
+            if it.get("fn") == "IfThen":
+                it = self.if_then(it)
+            if it.get("id", "").lower() == "nil":
+                continue
             fn = it.get("fn", "")
             a = it.get("args", [])
             nm = prefix + (_name(a) or fn)
@@ -341,10 +369,17 @@ class Interp:
             elif fn.startswith("wbUnion"):
                 lst = next((x for x in a if "list" in x), {"list": []})
                 alts = [self.fields([x]) for x in lst["list"]]
-                # alternatives that resolve all share one size in TES4; unresolved ones don't veto it
-                sizes = {sum(f[2] for f in alt) for alt in alts if alt and all(f[2] for f in alt)}
+                # alternatives that resolve all share one size in TES4; unresolved ones don't veto it.
+                # An empty wbUnused() alternative counts as size 0 (XLOC filler: 0 or 4 bytes).
+                sizes = {sum(f[2] for f in alt) for alt in alts
+                         if alt and all(f[2] is not None for f in alt)}
                 formid = any(f[3] for alt in alts for f in alt)
-                out.append((nm, "union", sizes.pop() if len(sizes) == 1 else None, formid))
+                if len(sizes) == 1:
+                    out.append((nm, "union", sizes.pop() or None, formid))
+                elif sizes:
+                    out.append((nm, "union", None, formid, {"alt_sizes": sorted(sizes)}))
+                else:
+                    out.append((nm, "union", None, formid))
             elif fn.startswith("wbArray"):
                 el = self.fields([x for x in a if "fn" in x or ("id" in x and x["id"].lower() in self.vars)])
                 count = next((int(x["num"]) for x in a if "num" in x), None)
@@ -364,7 +399,13 @@ class Interp:
         return out
 
     def members(self, node, group="", repeating=False):
-        node = self.resolve(node)
+        node = self.pick_game(self.resolve(node))
+        if node.get("id", "").lower() == "nil":
+            return []
+        if node.get("fn") == "IfThen":
+            node = self.if_then(node)
+            if node.get("id", "").lower() == "nil":
+                return []
         if "list" in node:
             return [m for x in node["list"] for m in self.members(x, group, repeating)]
         fn = node.get("fn", "")
@@ -405,7 +446,9 @@ class Interp:
                     if kind == "formid":
                         flds = [(_name(a) or sig, "formid", 4, True)]
                 fid = kind == "formid" or any(f[3] for f in flds)
-                return [{"sig": sig, "name": _name(a), "kind": kind, "required": required,
+                opt = next((int(m[1][0]["num"]) for m in node.get("methods", [])
+                            if m[0] == "SetOptionalFrom" and m[1] and "num" in m[1][0]), None)
+                return [{"sig": sig, "name": _name(a), "kind": kind, "required": required, "optional_from": opt,
                          "repeating": repeating or fn.startswith("wbArray") and False, "group": group,
                          "formid": fid, "formid_targets": targets, "fields": flds}]
         if fn == "wbTexturedModel":

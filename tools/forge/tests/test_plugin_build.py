@@ -109,6 +109,34 @@ class CodecTests(unittest.TestCase):
         self.assertEqual((d["layout"], d["fields"]["Offset"]), ("struct", 12.0))
         self.assertEqual(R.encode("LAND", d), vhgt)
 
+    def test_variant_layouts_from_handoff_23(self):
+        # CLMT TNAM: 6th byte (Moons / Phase Length) behind IfThen(Assigned(...)) in xEdit's common file
+        tnam = bytes([36, 60, 96, 120, 0, 3])
+        d = R.decode("CLMT", "TNAM", tnam)
+        self.assertNotIn("tail", d)
+        self.assertEqual(d["fields"]["Moons / Phase Length"], 3)
+        self.assertEqual(R.encode("CLMT", d), tnam)
+        # REFR XLOC: 12 or 16 bytes (a filler union of 0 or 4 bytes chosen by size)
+        for hx in ("05cdcdcd" "14000100" "00cdcdcd", "05cdcdcd" "14000100" "abababab" "04cdcdcd"):
+            data = bytes.fromhex(hx)
+            d = R.decode("REFR", "XLOC", data)
+            self.assertEqual(d["layout"], "struct", hx)
+            self.assertNotIn("tail", d)
+            self.assertEqual(R.encode("REFR", d), data)
+        # LIGH DATA: SetOptionalFrom -> 24 bytes (no Value/Weight) or 32
+        import struct
+        full = struct.pack("<iIBBBBIffIf", -1, 256, 255, 200, 100, 0, 1, 1.0, 90.0, 10, 0.5)
+        for data in (full, full[:24]):
+            d = R.decode("LIGH", "DATA", data)
+            self.assertEqual(d["layout"], "struct")
+            self.assertEqual(R.encode("LIGH", d), data)
+        self.assertEqual(R.decode("LIGH", "DATA", full[:24])["present"], 9)
+        # FACT XNAM: Oblivion's is 8 bytes (IsTES4 picks nil for the later games' combat reaction)
+        xnam = bytes.fromhex("12340000" "9cffffff")
+        d = R.decode("FACT", "XNAM", xnam)
+        self.assertEqual((d["layout"], d["fields"]["Modifier"]), ("struct", -100))
+        self.assertEqual(R.encode("FACT", d), xnam)
+
     def test_float_nan_payload_survives(self):
         odd_nan = bytes.fromhex("0100807f")          # signaling NaN: float conversion would quiet it, so it stays hex
         data = odd_nan + bytes(20)

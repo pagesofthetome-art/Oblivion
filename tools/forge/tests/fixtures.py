@@ -75,7 +75,7 @@ def info(fid, quest_fid, text, choice=None):
     s = [sub("DATA", b"\0\0\0"), sub("QSTI", u32(quest_fid))]
     if choice:
         s.append(sub("TCLT", u32(choice)))
-    s += [sub("TRDT", b"\0" * 24), sub("NAM1", z(text)), sub("NAM2", z(""))]
+    s += [sub("TRDT", b"\0" * 16), sub("NAM1", z(text)), sub("NAM2", z(""))]
     return rec("INFO", fid, *s)
 
 

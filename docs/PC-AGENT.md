@@ -8,7 +8,7 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/23-forge-layout-coverage-pc-handoff.md`](23-forge-layout-coverage-pc-handoff.md): `layout-check --all` must still PASS with most raw subrecords now named; send the shorter raw list and two sample dumps. Read-only on the game. |
+| **Do now** | [`docs/24-forge-layout-variants-pc-handoff.md`](24-forge-layout-variants-pc-handoff.md): survey must PASS with the CLMT TNAM / XLOC / XNAM / LIGH DATA variants decoded; 4 spot dumps with `--has`. Read-only on the game. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
 | **Send back** | §5 of the handoff |
 
@@ -38,4 +38,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 20 | `20-forge-phase3a-pc-handoff.md`: phase 3a layout proof + Searing Bolt | ALCH/ENCH/INGR/SGST PASS; MGEF ESCE arrays fixed; sha256 matched; 3c decision A |
 | 21 | `21-forge-phase3a-rerun-pc-handoff.md`: array fix + full layout survey | SPEL+MGEF PASS; --all 63 types, 0 mismatches, only REFR XSED tails (fixed) |
 | 22 | `22-forge-phase3a-allpass-pc-handoff.md`: --all must PASS + raw list | PASS on Oblivion.esm (63 types) + Knights.esp (37); raw list received; Track E merge: not yet |
-| 23 | `23-forge-layout-coverage-pc-handoff.md`: layout coverage (most raw now named) | **pending** |
+| 23 | `23-forge-layout-coverage-pc-handoff.md`: layout coverage (most raw now named) | all bytes identical; CLMT TNAM tail + 3 size variants (fixed); top raw down to 8,181 |
+| 24 | `24-forge-layout-variants-pc-handoff.md`: layout variants | **pending** |

@@ -55,20 +55,79 @@ def sub_schema(rec_sig: str, sub_sig: str, nth: int = 0) -> dict | None:
     return hits[min(nth, len(hits) - 1)] if hits else None
 
 
-def fixed_layout(sch: dict | None) -> list[dict] | None:
-    """Fields with known offsets and sizes covering the subrecord, or None."""
+def fixed_layout(sch: dict | None, data_len: int | None = None, union_sizes: dict | None = None,
+                 present: int | None = None) -> list[dict] | None:
+    """Fields with concrete offsets and sizes, or None.
+
+    data_len    pick union alternatives (XLOC filler 0/4 bytes) and xEdit's SetOptionalFrom
+                truncation (LIGH DATA 24/32, CTDA 20/24) so the layout fits this many bytes;
+    union_sizes {field name: size} chosen when encoding (from the given hex);
+    present     encode only the first N fields (a truncated vanilla subrecord).
+    """
     if not sch or not sch["fields"]:
         return None
     fl = [dict(f) for f in sch["fields"]]
     for f in fl:
-        # a union of fixed size is kept as raw bytes (its meaning depends on another field)
-        if f["type"] == "union" and f["size"]:
-            f["type"] = "bytes"
-    if any(f["size"] is None or f["offset"] is None or f["type"] not in PACK and f["type"] != "bytes" for f in fl):
+        if f["type"] == "union":
+            # a union is kept as raw bytes (its meaning depends on another field)
+            alts = f.get("alt_sizes")
+            if f["size"]:
+                f["type"] = "bytes"
+            elif alts:
+                f["type"] = "bytes"
+                f["size"] = None          # chosen below
+    for f in fl:
+        if f["type"] not in PACK and f["type"] != "bytes":
+            return None
+    flex = [f for f in fl if f["size"] is None and f.get("alt_sizes")]
+    if any(f["size"] is None and not f.get("alt_sizes") for f in fl) or len(flex) > 1:
         return None
-    if any(f["type"] == "bytes" and f["size"] == 0 for f in fl[:-1]):
-        return None                # open-ended padding is only valid at the end
-    return fl
+    candidates = [None]
+    if flex:
+        f = flex[0]
+        if union_sizes and f["name"] in union_sizes:
+            candidates = [union_sizes[f["name"]]]
+        elif data_len is not None:
+            candidates = list(f["alt_sizes"])
+        else:
+            candidates = [max(f["alt_sizes"])]       # new records: the complete variant
+    for size in candidates:
+        lay = [dict(x) for x in fl]
+        if flex:
+            next(x for x in lay if x["name"] == flex[0]["name"] and x["size"] is None)["size"] = size
+        off = 0
+        for x in lay:
+            x["offset"] = off
+            off += x["size"]
+        if any(x["type"] == "bytes" and x["size"] == 0 and not x.get("alt_sizes") and i != len(lay) - 1
+               for i, x in enumerate(lay)):
+            continue                                   # open-ended padding is only valid at the end
+        if present is not None:
+            return lay[:present]
+        if data_len is None:
+            return lay
+        total = sum(x["size"] for x in lay)
+        if total == data_len or (_open_tail(lay) and total <= data_len):
+            return lay
+        if sch.get("optional_from") is not None and data_len < total:
+            run = 0
+            for k, x in enumerate(lay):
+                run += x["size"]
+                if run == data_len and k + 1 >= 1:
+                    return lay[:k + 1]
+    if data_len is not None:
+        return None if flex else _first_fit(fl, data_len)
+    return None
+
+
+def _first_fit(fl, data_len):
+    """Fallback for decode: the full layout when it fits inside the data (leftover becomes a tail)."""
+    lay = [dict(x) for x in fl]
+    off = 0
+    for x in lay:
+        x["offset"] = off
+        off += x["size"] if x["size"] is not None else 0
+    return lay if all(x["size"] is not None for x in lay) and sum(x["size"] for x in lay) <= data_len else None
 
 
 def _field_names(fl):
@@ -96,18 +155,22 @@ def decode(rec_sig: str, sub_sig: str, data: bytes, nth: int = 0) -> dict:
             items = [_decode_fields(fl, data[i:i + size]) for i in range(0, len(data), size)]
             return {"sig": sub_sig, "layout": "array", "items": items}
         return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
+    fl = fixed_layout(sch, len(data)) if sch and sch["kind"] != "array" else None
     if not fl or sum(f["size"] for f in fl) > len(data):
         return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
     # xEdit's wbUnused(0) as the last field = padding of any length to the end (REFR XSED: 1 or 4 bytes)
     used = len(data) if _open_tail(fl) else sum(f["size"] for f in fl)
     out = {"sig": sub_sig, "layout": "struct", "fields": _decode_fields(fl, data[:used])}
+    full = fixed_layout(sch)
+    if full is not None and len(fl) < len(full):
+        out["present"] = len(fl)              # SetOptionalFrom: a shorter vanilla variant
     if used < len(data):
         out["tail"] = data[used:].hex()
     return out
 
 
 def _open_tail(fl) -> bool:
-    return bool(fl) and fl[-1]["type"] == "bytes" and fl[-1]["size"] == 0
+    return bool(fl) and fl[-1]["type"] == "bytes" and fl[-1]["size"] == 0 and not fl[-1].get("alt_sizes")
 
 
 def _decode_fields(fl, data: bytes) -> dict:
@@ -178,7 +241,12 @@ def encode(rec_sig: str, d: dict, nth: int = 0) -> bytes:
         return str(d["value"]).encode("cp1252") + b"\0"
     if d.get("layout") == "raw" or "hex" in d:
         return bytes.fromhex(d["hex"])
-    fl = fixed_layout(sub_schema(rec_sig, sub_sig, nth))
+    sch = sub_schema(rec_sig, sub_sig, nth)
+    fields_in = d.get("fields", {})
+    union_sizes = {f["name"]: len(bytes.fromhex(fields_in[f["name"]])) for f in (sch or {}).get("fields", [])
+                   if f.get("alt_sizes") and isinstance(fields_in.get(f["name"]), str)
+                   and not fields_in[f["name"]].startswith("hex:")}
+    fl = fixed_layout(sch, union_sizes=union_sizes or None, present=d.get("present"))
     if not fl:
         raise CodecError(f"{rec_sig}.{sub_sig}: no fixed layout known; give it as hex")
     if d.get("layout") == "array" or "items" in d:

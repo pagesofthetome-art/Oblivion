@@ -65,7 +65,17 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - unsized trailing byte arrays.
 
   Unions become sized raw bytes. Overrides: CTDA parameter sizes (from patchlib's offsets 12/16) and the `wbTexturedModel` Oblivion branch. Floats whose bytes don't survive (signaling NaN) are kept as hex. Every top-25 raw subrecord now has a layout, except PGRD PGRR (variable per point) and PACK PKDT (a union of 4 or 8 bytes).
-- [ ] Handoff 23: `--all` must still PASS on the PC, with the raw list much shorter.
+- [x] Handoff 23 (`fd08081`): 87 tests OK.
+  - Knights.esp **PASS**. Oblivion.esm: every byte identical, one FAIL (19 CLMT TNAM with a 1-byte tail).
+  - The top raw count dropped from 1.03M to 8,181 (PGRD PGRR). Size mismatches: REFR XLOC, FACT XNAM, LIGH DATA.
+- [x] Fixes, cloud:
+  - xEdit `IfThen(Assigned(cb), a, nil)` → CLMT TNAM's 6th byte (Moons / Phase Length).
+  - `IsTES4(<Oblivion>, <later games>)` game selector → FACT XNAM is 8 bytes in Oblivion.
+  - `SetOptionalFrom(n)` → shorter vanilla variants decode (LIGH DATA 24/32, CTDA 20/24, INFO DATA 2/3).
+  - Unions with 0/4-byte alternatives chosen by size → REFR XLOC 12/16.
+  - `forge dump --has SIG`.
+  - The fixture INFO TRDT is now 16 bytes, like vanilla.
+- [ ] Handoff 24: `--all` PASS on Oblivion.esm and Knights.esp, with the size mismatches gone.
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.

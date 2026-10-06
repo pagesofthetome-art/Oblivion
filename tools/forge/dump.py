@@ -1,7 +1,7 @@
 """forge dump: show a record's subrecords byte by byte, decoded with the KB record schemas.
 
     forge dump <Plugin.esp|path> <EditorID | FormID> [--data DIR] [--json]
-    forge dump <Plugin.esp|path> --sig SPEL [--match Fire] [--limit 5]
+    forge dump <Plugin.esp|path> --sig SPEL [--match Fire] [--has SCIT] [--limit 5]
 
 Read-only. FormIDs are shown load-order independent (Owner.esp:OOOOOO).
 """
@@ -93,7 +93,8 @@ def decode(plugin, rec_sig: str, sub, schema: dict | None) -> list[dict]:
     return out
 
 
-def find(path: Path, selector: str | None, sig: str | None, match: str | None, limit: int):
+def find(path: Path, selector: str | None, sig: str | None, match: str | None, limit: int,
+         has: list[str] | None = None):
     want_fid = None
     if selector and re.fullmatch(r"(?:0x)?[0-9A-Fa-f]{8}", selector):
         want_fid = int(selector[-8:], 16)
@@ -107,16 +108,18 @@ def find(path: Path, selector: str | None, sig: str | None, match: str | None, l
                 continue
         elif match and match.lower() not in (r.editor_id + " " + r.full_name).lower():
             continue
+        if has and not set(has) <= {x.sig for x in r.subrecords()}:
+            continue
         yield p, r
         n += 1
         if limit and n >= limit:
             return
 
 
-def dump(path: Path, selector=None, sig=None, match=None, limit=5) -> list[dict]:
+def dump(path: Path, selector=None, sig=None, match=None, limit=5, has=None) -> list[dict]:
     schemas = _schemas()
     out = []
-    for p, r in find(path, selector, sig, match, limit):
+    for p, r in find(path, selector, sig, match, limit, has):
         sch = schemas.get(r.sig, {})
         subs = []
         for s in r.subrecords():
@@ -150,6 +153,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--sig")
     ap.add_argument("--match")
     ap.add_argument("--limit", type=int, default=5)
+    ap.add_argument("--has", action="append", help="only records that contain this subrecord (repeatable)")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     path = (a.data / a.plugin) if a.data else Path(a.plugin)
@@ -159,6 +163,7 @@ def main(argv: list[str]) -> int:
     if not a.selector and not a.sig:
         print("error: give an EditorID/FormID or --sig", file=sys.stderr)
         return 1
-    rows = dump(path, a.selector, a.sig.upper() if a.sig else None, a.match, a.limit)
+    rows = dump(path, a.selector, a.sig.upper() if a.sig else None, a.match, a.limit,
+                [h.upper() for h in a.has] if a.has else None)
     print(json.dumps(rows, indent=1) if a.json else text(rows))
     return 0 if rows else 2
