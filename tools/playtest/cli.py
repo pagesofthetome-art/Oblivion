@@ -90,6 +90,11 @@ def cmd_playtest(a) -> int:
         try:
             from playtest import vanilla
             idx = runner.vanilla_index(m)
+            try:
+                for role, a in vanilla.test_actors(idx).items():
+                    print(f"  test {role:<7} {a['edid']:<28} {a['name']} ({a['npc']}, {a['ref']}, home {a['home']})")
+            except vanilla.VanillaError as e:
+                print(f"  test actors: {e}")
             for key in ("arena", "street", "open"):
                 try:
                     loc = vanilla.resolve(key, idx)

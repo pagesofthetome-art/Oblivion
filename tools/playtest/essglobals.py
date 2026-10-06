@@ -1,7 +1,7 @@
 """Read global variable values out of an Oblivion save (.ess): the result channel that needs no log.
 
 Run 5: `scof` / `con_SCOF` wrote nothing on the PC. But every console line is compiled as a small
-script, so `set ForgeR01 to ForgeArenaDummyRef.GetAV Health` stores a check's value in a global
+script, so `set ForgeR01 to SomeBeggarRef.GetAV Health` stores a check's value in a global
 from ForgeTestCells.esp, and the last batch saves the game. Globals are in every save, so forge
 reads them back after the game has exited.
 

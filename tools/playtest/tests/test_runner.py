@@ -57,7 +57,10 @@ class RunnerTests(MachineCase):
         self.assertEqual(p.killed, [])
         self.assertTrue(p.game.messages and "quit the game when you are ready" in p.game.messages[-1])
         self.assertTrue(any("Quit the game with the pad" in l for l in self.logs))
-        self.assertIn("ForgeArenaDummyRef.moveto player 0 600 0", hist, "dummy brought to the player by EditorID")
+        self.assertIn("FixtureBeggarAnnaRef.moveto player 0 600 0", hist, "the vanilla beggar target comes to the player")
+        self.assertIn("FixtureBeggarBoRef.cast 02000800 FixtureBeggarAnnaRef", hist, "the other beggar casts")
+        self.assertIn("FixtureBeggarAnnaRef.setav health 500", hist)
+        self.assertEqual(res["test_actors"]["target"]["edid"], "FixtureBeggarAnnaRef")
         self.assertFalse([h for h in hist if re.match(r"^[0-9A-F]{8}\.", h) or h.startswith("prid")])
         self.assertEqual(res["log_source"], str(self.m.game_dir / "forge_test.log"))
         self.assertFalse(list(self.m.save_dir.glob("ForgePlaytestResult.*")), "result save removed")
@@ -305,7 +308,7 @@ class RunnerTests(MachineCase):
         mod = fixtures.tiny_esp(self.tmp / "work" / "NeedsRebirth.esp", ["Oblivion.esm", "RebirthPlus.esp"])
         plan = self.tmp / "work" / "NeedsRebirth.playtest.json"
         plan.write_text(json.dumps({"test_plan": {"cell": "arena", "steps": [
-            {"check": {"ref": "ForgeArenaDummyRef", "fn": "GetDead", "expect": "== 0"}}]}}))
+            {"check": {"ref": "TestTarget", "fn": "GetDead", "expect": "== 0"}}]}}))
         res = runner.run(mod, self.opts(), self.m, self.fake())
         man = json.loads((Path(res["run_dir"]) / "playtest_manifest.json").read_text())
         self.assertEqual(man["load_order"][-3:], ["RebirthPlus.esp", "NeedsRebirth.esp", "ForgeTestCells.esp"])

@@ -42,7 +42,7 @@ DEFAULTS = {
                           "ICArenaDistrict", "ICTempleDistrict"]},
     "open": {"markers": ["Weye", "Pell's Gate", "Aleswell"], "label": "open countryside"},
 }
-INDEX_VERSION = 3
+INDEX_VERSION = 4
 
 
 class VanillaError(RuntimeError):
@@ -81,7 +81,26 @@ def build_index(esm: Path) -> dict:
     doors: list[dict] = []
     ref_cell: dict[int, int] = {}
     refcount: dict[int, int] = {}
-    for _, r in tp.iter_records(esm, {"CELL", "WRLD", "REFR", "ACHR"}):
+    actors: list[dict] = []                          # persistent actor refs with an EditorID
+    npcs: dict[int, dict] = {}
+    classes: dict[int, str] = {}
+    for _, r in tp.iter_records(esm, {"CELL", "WRLD", "REFR", "ACHR", "NPC_", "CLAS"}):
+        if r.sig == "CLAS":
+            classes[r.form_id] = r.editor_id
+            continue
+        if r.sig == "NPC_":
+            subs = {s.sig: s.data for s in r.subrecords()}
+            acbs = subs.get("ACBS", b"\0" * 4)
+            npcs[r.form_id] = {"edid": r.editor_id, "name": _z(subs.get("FULL")),
+                               "essential": bool(struct.unpack_from("<I", acbs)[0] & 0x02),
+                               "class": struct.unpack("<I", subs["CNAM"][:4])[0] if "CNAM" in subs else None,
+                               "script": "SCRI" in subs}
+            continue
+        if r.sig == "ACHR" and r.flags & 0x400 and r.editor_id:
+            name = r.first("NAME")
+            if name:
+                actors.append({"edid": r.editor_id, "ref": r.form_id, "base": struct.unpack("<I", name[:4])[0],
+                               "cell": r.parent})
         if r.sig in ("REFR", "ACHR"):
             refcount[r.parent] = refcount.get(r.parent, 0) + 1
             if r.sig == "REFR":
@@ -135,8 +154,28 @@ def build_index(esm: Path) -> dict:
     for sp in spots:
         if sp["world"]:
             sp["cell_refs"] = ext_refs.get((sp["world"], tuple(sp["grid"])), sp["cell_refs"])
+    for a in actors:
+        n = npcs.get(a["base"], {})
+        a.update(npc=n.get("edid", ""), name=n.get("name", ""), essential=n.get("essential", False),
+                 npc_script=n.get("script", False), cls=classes.get(n.get("class"), ""),
+                 cell_edid=cells.get(a["cell"], {}).get("edid", ""))
     return {"version": INDEX_VERSION, "interiors": interiors, "markers": [m for m in markers if m["name"]],
-            "spots": spots, "worlds": sorted(w for w in worlds.values() if w)}
+            "spots": spots, "worlds": sorted(w for w in worlds.values() if w),
+            "actors": [a for a in actors if a["npc"]]}
+
+
+def test_actors(index: dict) -> dict:
+    """Two real vanilla beggars for the test (Yuri: the console resolves vanilla persistent refs by
+    EditorID; forge-made actors are not needed). Beggar class, not essential, a persistent reference
+    with an EditorID; those without an NPC script first (less quest wiring), then by EditorID so the
+    pick never changes. Target first, caster second."""
+    pool = [a for a in index.get("actors", []) if "beggar" in a["cls"].lower() and not a["essential"]]
+    pool.sort(key=lambda a: (a["npc_script"], a["edid"].lower()))
+    if len(pool) < 2:
+        raise VanillaError(f"need two non-essential beggars with persistent EditorID refs; found {len(pool)}")
+    pick = {"target": pool[0], "caster": pool[1]}
+    return {role: {"edid": a["edid"], "ref": f"{a['ref'] & 0xFFFFFF:08X}", "npc": a["npc"], "name": a["name"],
+                   "home": a["cell_edid"]} for role, a in pick.items()}
 
 
 def load_index(esm: Path, cache: Path) -> dict:

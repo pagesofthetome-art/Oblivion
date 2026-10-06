@@ -67,6 +67,19 @@ def _exterior(world: int, cell: int, gx: int, gy: int, refs: list[Rec], temp: li
     return grup(struct.pack("<I", world), 1, pc + block)
 
 
+def _beggar(fid: int, edid: str, flags: int, script: bool, cls: int = 0x0000E100) -> Rec:
+    subs = [("EDID", zs(edid)), ("FULL", zs(edid[7:])), ("ACBS", struct.pack("<IHHHhHH", flags, 0, 0, 0, 1, 0, 0)),
+            ("RNAM", u32(0x907))]
+    if script:
+        subs.append(("SCRI", u32(0x0000E300)))
+    subs.append(("CNAM", u32(cls)))
+    return Rec("NPC_", fid, subs)
+
+
+BEGGAR_REFS = {"FixtureBeggarAnnaRef": 0x0000E401, "FixtureBeggarBoRef": 0x0000E402,
+               "FixtureBeggarEssRef": 0x0000E403, "FixtureGuardCidRef": 0x0000E404}
+
+
 def fake_esm(path: Path) -> Path:
     groups = [
         _top("RACE", [Rec("RACE", 0x00000907, [("EDID", zs("Imperial")), ("FULL", zs("Imperial"))])]),
@@ -78,7 +91,13 @@ def fake_esm(path: Path) -> Path:
                       Rec("STAT", 0x00000034, [("EDID", zs("XMarkerHeading")), ("MODL", zs("marker_arrow.nif"))]),
                       Rec("STAT", 0x0000E001, [("EDID", zs("ArenaFloor")), ("MODL", zs("arena\\floor.nif")),
                                                ("MODB", struct.pack("<f", 300.0))])]),
-        _top("NPC_", [Rec("NPC_", DONOR, [
+        _top("CLAS", [Rec("CLAS", 0x0000E100, [("EDID", zs("Beggar")), ("FULL", zs("Beggar"))]),
+                      Rec("CLAS", 0x0000E101, [("EDID", zs("Guard")), ("FULL", zs("Guard"))])]),
+        _top("NPC_", [_beggar(0x0000E201, "FixtureBeggarAnna", 0, False),
+                      _beggar(0x0000E202, "FixtureBeggarBo", 0, True),
+                      _beggar(0x0000E203, "FixtureBeggarEss", 0x02, False),
+                      _beggar(0x0000E204, "FixtureGuardCid", 0, False, cls=0x0000E101),
+                      Rec("NPC_", DONOR, [
             ("EDID", zs("ICCitizenFixture")), ("FULL", zs("Citizen")),
             ("ACBS", struct.pack("<IHHHhHH", 0, 0, 0, 0, 1, 0, 0)), ("RNAM", u32(0x907)),
             ("CNTO", struct.pack("<Ii", SHIRT, 1)), ("CNTO", struct.pack("<Ii", 0x0F, 3)),
@@ -98,7 +117,9 @@ def fake_esm(path: Path) -> Path:
     shop = Rec("CELL", SHOP_CELL, [("EDID", zs("ICMarketShopFixture")), ("FULL", zs("A Shop")), ("DATA", b"\x01")])
     cells_body = (arena.to_bytes() + _cell_children(ARENA_CELL, [_door(ARENA_GATE, DECOY_DOOR, 0, -900)], floor)
                   + decoy.to_bytes() + _cell_children(DECOY_CELL, [_door(DECOY_DOOR, ARENA_GATE, 120, 340, 64)], [])
-                  + shop.to_bytes() + _cell_children(SHOP_CELL, [_door(SHOP_DOOR, STREET_DOOR, 41000, 25100, 10)], [])
+                  + shop.to_bytes() + _cell_children(SHOP_CELL, [_door(SHOP_DOOR, STREET_DOOR, 41000, 25100, 10)] + [
+                      Rec("ACHR", fid, [("EDID", zs(edid)), ("NAME", u32(0x0000E201 + i)), ("DATA", pos(0, 0, 0))], 0x400)
+                      for i, (edid, fid) in enumerate(BEGGAR_REFS.items())], [])
                   + ruin.to_bytes() + _cell_children(0x0000A004, [], ruin_refs))
     groups.append(grup(b"CELL", 0, grup(struct.pack("<i", 1), 2, grup(struct.pack("<i", 0), 3, cells_body))))
     wrld = (Rec("WRLD", TAMRIEL, [("EDID", zs("Tamriel")), ("FULL", zs("Cyrodiil"))]).to_bytes()

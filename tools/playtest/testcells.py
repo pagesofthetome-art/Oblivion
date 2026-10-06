@@ -76,14 +76,10 @@ PACKAGES = {
     "ForgeTownsfolkWanderPkg": {"type": "wander", "location": ["near_current", 1024], "hour": 0, "duration": 24,
                                 "flags": 0, "note": "wander around, all day"},
 }
-# which actors come to which location, and where (offset from the player, game units)
-BRING = {
-    "arena": [("ForgeArenaDummyRef", 0, 600, 0), ("ForgeArenaCasterRef", 200, 100, 0)],
-    "street": [("ForgeStreetMerchantRef", 0, 300, 0), ("ForgeStreetTownsfolkRef", 300, 500, 0),
-               ("ForgeStreetTownsfolk2Ref", -300, 700, 0)],
-    "open": [("ForgeArenaDummyRef", 0, 1200, 0), ("ForgeArenaCasterRef", 200, 100, 0)],
-    "custom": [("ForgeArenaDummyRef", 0, 500, 0), ("ForgeArenaCasterRef", 200, 100, 0)],
-}
+# which test actors come to the player, and where (offset in game units). The roles are real
+# vanilla beggars picked from Oblivion.esm (vanilla.test_actors); the forge-made actors below stay
+# in the plugin but are not used (Yuri: use references the console already resolves).
+BRING = {key: [("TestTarget", 0, 600, 0), ("TestCaster", 200, 100, 0)] for key in ("arena", "street", "open", "custom")}
 APPEARANCE_SUBS = ("HNAM", "LNAM", "ENAM", "HCLR", "FGGS", "FGGA", "FGTS", "FNAM")
 # result globals: checks store their values here and the last batch saves the game, so results
 # reach disk even when the console log doesn't (run 5). See essglobals.py.

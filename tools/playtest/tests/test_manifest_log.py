@@ -70,6 +70,20 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual([c["command"] for c in m["chunks"]], ["bat fpt1", "bat fpt2"])
         self.assertEqual(m["results"]["checks"], {"2": "ForgeR01", "3": "ForgeR02", "6": "ForgeR03"})
 
+    def test_roles_resolve_to_real_vanilla_references(self):
+        ft = forms()
+        ft.alias("TestTarget", "SomeBeggarRef", "Oblivion.esm", 0x0001E1A5)
+        ft.alias("TestCaster", "OtherBeggarRef", "Oblivion.esm", 0x0001E1A6)
+        plan = mf.parse_plan({"steps": [
+            {"cast": {"caster": "TestCaster", "spell": "ForgeExampleFireboltSpell", "target": "TestTarget"}},
+            {"check": {"ref": "TestTarget", "fn": "GetAV", "args": ["Health"], "expect": "> 0"}}]})
+        m = mf.build(plan, ft, location=LOC, bring=[("TestTarget", 0, 600, 0)], plugin="x.esp", spec=None, run_id="r")
+        lines = m["chunks"][0]["lines"]
+        self.assertIn("SomeBeggarRef.moveto player 0 600 0", lines)
+        self.assertIn("SomeBeggarRef.setav health 500", lines, "the target is made sturdy for the test")
+        self.assertIn("OtherBeggarRef.cast 02000800 SomeBeggarRef", lines)
+        self.assertIn("set ForgeR01 to SomeBeggarRef.GetAV Health", lines)
+
     def test_references_without_an_editor_id_are_refused(self):
         plan = mf.parse_plan({"steps": [{"check": {"ref": "0300081A", "fn": "GetAV", "args": ["Health"],
                                                    "expect": "> 0"}}]})

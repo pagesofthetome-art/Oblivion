@@ -95,8 +95,8 @@ class FakeGame:
             self.history.append(f"GAME KEYS {t!r}")      # typing into the game itself = a bug
 
     # console
-    REFS = {"forgearenadummyref", "forgearenacasterref", "forgestreetmerchantref", "forgestreettownsfolkref",
-            "forgestreettownsfolk2ref"}
+    # persistent references with EditorIDs the console can name: the fixture's vanilla beggars
+    REFS = {"fixturebeggarannaref", "fixturebeggarboref", "fixturebeggaressref", "fixtureguardcidref"}
 
     def write(self, line: str):
         """Console output that a logging plugin would capture (logger == conscribe)."""
@@ -123,6 +123,10 @@ class FakeGame:
             return 1.0 if args[0] in self.spells else 0.0
         if fn == "cast":
             self.av["health"] -= self.b["damage"]
+            return 0.0
+        if fn == "setav":
+            if args and args[0].lower() == "health":
+                self.av["health"] = float(args[1])
             return 0.0
         if fn == "getav":
             return self.av["health"]

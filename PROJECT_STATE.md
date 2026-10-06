@@ -70,4 +70,9 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - a result save is read back (`essglobals.py`) when there is no log;
   - make-save confirms the location from the new save's own global;
   - 88 tests.
-- **Waiting on:** PC run 7. The goal is a PASS (the fire bolt lowers the dummy's health).
+- **Run 7 revised (Yuri):**
+  - the test actors are two real vanilla beggars, TestTarget and TestCaster, picked from
+    Oblivion.esm: non-essential, persistent references with EditorIDs;
+  - the forge-made actors are unused;
+  - 90 tests.
+- **Waiting on:** PC run 7. The goal is a PASS (the fire bolt lowers the target's health, the target survives).

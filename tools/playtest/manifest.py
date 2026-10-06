@@ -7,10 +7,10 @@ Source: the spec's `test_plan` (or a JSON/YAML file given with --manifest):
       steps:
         - addspell: ForgeExampleFireboltSpell
         - check: {ref: player, fn: HasSpell, args: [ForgeExampleFireboltSpell], expect: "== 1"}
-        - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], save: hp}
-        - cast: {spell: ForgeExampleFireboltSpell, target: ForgeArenaDummyRef}
+        - check: {ref: TestTarget, fn: GetAV, args: [Health], save: hp}
+        - cast: {caster: TestCaster, spell: ForgeExampleFireboltSpell, target: TestTarget}
         - wait: 3
-        - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], expect: "< $hp"}
+        - check: {ref: TestTarget, fn: GetAV, args: [Health], expect: "< $hp"}
 
 Step kinds: additem, removeitem, equip, addspell, cast, spawn, setav, modav, moveto, weather,
 console (raw command), wait (seconds of unpaused game time), check (a console function whose
@@ -20,7 +20,7 @@ How it runs in game. Oblivion can't read JSON, and a compiled OBSE quest would n
 Construction Set for every new manifest. So the manifest is compiled into numbered console batch
 files (fpt1.txt, fpt2.txt ...; one per `wait`), which the boot driver runs with the vanilla `bat`
 command. Each line is compiled by the game as a one-line script, so references are named by their
-EditorID (`ForgeArenaDummyRef.GetAV Health`). Each check value goes into a result global from
+EditorID (`SomeBeggarRef.GetAV Health`). Each check value goes into a result global from
 ForgeTestCells.esp (first set to a sentinel, so a failed line never counts as a value), and xOBSE's
 PrintToFile writes markers and values to forge_test.log. The last batch also saves the game as
 ForgePlaytestResult, whose globals are a second way to read the results. `forge test` then compares
@@ -149,6 +149,7 @@ class FormTable:
         self.index = {p.lower(): i for i, p in enumerate(load_order)}
         self.masters = {k.lower(): v for k, v in plugin_masters.items()}
         self.names: dict[str, tuple[str, int, str]] = {}
+        self.aliases: dict[str, str] = {}               # role (TestTarget) -> real EditorID
 
     def add_plugin_records(self, plugin: str, records) -> None:
         for edid, fid, sig in records:
@@ -164,8 +165,13 @@ class FormTable:
             raise ManifestError(f"{owner} (owner of {fid:08X} in {plugin}) is not in the test load order")
         return (self.index[owner.lower()] << 24) | (fid & 0xFFFFFF)
 
+    def alias(self, role: str, edid: str, plugin: str, fid: int, sig: str = "ACHR") -> None:
+        """A role name usable in specs (TestTarget, TestCaster) for a real vanilla reference."""
+        self.aliases[role.lower()] = edid
+        self.names.setdefault(edid.lower(), (plugin, fid, sig))
+
     def form(self, name) -> str:
-        s = str(name).strip()
+        s = self.aliases.get(str(name).strip().lower(), str(name).strip())
         if s.lower() == "player":
             return "player"
         if ":" in s:                                  # Plugin.esp:00ABCD
@@ -184,6 +190,10 @@ class FormTable:
 
 # ---------------------------------------------------------------- compile
 RESULT_SAVE = "ForgePlaytestResult"
+# The test actors are real vanilla beggars (vanilla.test_actors); make them fit for a test:
+# the target survives a few spells and nobody starts a fight on its own.
+PREPARE = {"TestTarget": ["setav health 500", "setav aggression 0", "setav confidence 100"],
+           "TestCaster": ["setav aggression 0", "setav confidence 100", "setav magicka 500"]}
 MAX_CHECKS = 32
 SENTINEL = -99999                                      # "no value": set first, so a failed line can't pass
 
@@ -195,7 +205,7 @@ def _ref(name, forms: FormTable) -> str:
     Run 6: `prid` selects the reference, but the next batch line doesn't use the selection
     ("Function 'GetActorValue' requires a reference"). Every console line is compiled as a small
     script, and scripts name persistent references by EditorID, so that is what works."""
-    s = str(name).strip()
+    s = forms.aliases.get(str(name).strip().lower(), str(name).strip())
     if s.lower() in ("player", "playerref"):
         return "player"
     hit = forms.names.get(s.lower())
@@ -244,6 +254,7 @@ def _arg(a: str, forms: FormTable) -> str:
     """Check arguments: actor value names / numbers stay as written, form names resolve."""
     if re.fullmatch(r"[-+]?\d+(\.\d+)?", a):
         return a
+    a = forms.aliases.get(a.lower(), a)
     hit = forms.names.get(a.lower())
     if hit and hit[2] == "CELL":
         return a                                       # GetInCell & co. take the cell's EditorID
@@ -295,6 +306,9 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
                  f"player.setangle z {math.degrees(heading) % 360:.1f}"]
     for ref, dx, dy, dz in bring:
         head.append(f"{_ref(ref, forms)}.moveto player {dx} {dy} {dz}")
+    for role, lines in PREPARE.items():
+        if role.lower() in forms.aliases:
+            head += [f"{_ref(role, forms)}.{l}" for l in lines]
     head += _say(marker("CELL", location.get("cell_edid") or location.get("world_edid")))
     probe = (f"GetInCell {location['cell_edid']}" if location.get("cell_edid")
              else f"GetInWorldspace {location['world_edid']}")

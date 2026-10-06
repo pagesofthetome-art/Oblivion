@@ -42,7 +42,8 @@ class TestActorsTests(unittest.TestCase):
 
     def test_looks_copied_from_a_vanilla_npc(self):
         npc = self.recs["ForgeStreetMerchant"]
-        donor = {s.sig: s.data for s in next(r for _, r in tp.iter_records(self.esm, {"NPC_"})).subrecords()}
+        donor = {s.sig: s.data for s in next(r for _, r in tp.iter_records(self.esm, {"NPC_"})
+                                             if r.form_id == fixtures.DONOR).subrecords()}
         for sig in ("HNAM", "ENAM", "FGGS", "FGGA", "FGTS", "HCLR"):
             self.assertEqual(npc.first(sig), donor[sig], sig)
         cnto = [struct.unpack_from("<I", x.data)[0] for x in npc.subrecords() if x.sig == "CNTO"]
@@ -98,6 +99,14 @@ class VanillaTests(unittest.TestCase):
         idx = dict(self.idx, interiors=[c for c in self.idx["interiors"] if c["edid"] != "ICArena"])
         with self.assertRaises(vanilla.VanillaError):
             vanilla.resolve("arena", idx)                  # ICArenaBloodworks is a side room; never the ruin
+
+    def test_test_actors_are_real_non_essential_beggars(self):
+        a = vanilla.test_actors(self.idx)
+        self.assertEqual(a["target"]["edid"], "FixtureBeggarAnnaRef", "no NPC script first")
+        self.assertEqual(a["caster"]["edid"], "FixtureBeggarBoRef")
+        picked = {x["edid"] for x in a.values()}
+        self.assertNotIn("FixtureBeggarEssRef", picked, "essential NPCs are never used")
+        self.assertNotIn("FixtureGuardCidRef", picked, "beggars only")
 
     def test_custom_and_errors(self):
         self.assertEqual(vanilla.resolve("ICArenaBloodworks", self.idx).boot, "coc ICArenaBloodworks")

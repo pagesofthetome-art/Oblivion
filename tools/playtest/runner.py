@@ -71,6 +71,7 @@ class Prepared:
     active: list[str]
     stage: list[tuple[Path, Path | None, bytes | None]] = field(default_factory=list)
     layout: dict | None = None
+    actors: dict | None = None                    # {"target": {...}, "caster": {...}} vanilla beggars
 
 
 # ---------------------------------------------------------------- target
@@ -148,7 +149,9 @@ def vanilla_index(m: profile.Machine) -> dict:
 def prepare(t: Target, opts: Options, m: profile.Machine) -> Prepared:
     data = m.data
     try:
-        loc = vanilla.resolve(opts.cell or t.plan.get("cell"), vanilla_index(m))
+        idx = vanilla_index(m)
+        loc = vanilla.resolve(opts.cell or t.plan.get("cell"), idx)
+        actors = vanilla.test_actors(idx)
     except vanilla.VanillaError as e:
         raise PlaytestError(str(e)) from None
     tc_esp, lay = testcells_build(m)
@@ -178,7 +181,7 @@ def prepare(t: Target, opts: Options, m: profile.Machine) -> Prepared:
             stage.append((data / t.plugin.name, t.plugin, None))
     active.append(testcells.PLUGIN_NAME)
     stage.append((data / testcells.PLUGIN_NAME, tc_esp, None))
-    return Prepared(t, loc, active, stage, lay)
+    return Prepared(t, loc, active, stage, lay, actors)
 
 
 def _forms(prep: Prepared, m: profile.Machine, lo: list[str]) -> mf.FormTable:
@@ -199,6 +202,8 @@ def _forms(prep: Prepared, m: profile.Machine, lo: list[str]) -> mf.FormTable:
     names = ([prep.target.plugin.name] if prep.target.plugin is not None else []) + [testcells.PLUGIN_NAME]
     for name in names:                                  # the mod's names win
         ft.add_plugin_records(name, recs.get(name, []))
+    for role, a in (prep.actors or {}).items():
+        ft.alias("Test" + role.capitalize(), a["edid"], "Oblivion.esm", int(a["ref"], 16))
     return ft
 
 
@@ -427,6 +432,8 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             prep = prepare(t, opts, m)
             loc = prep.location
             log(f"location: {loc.label}: {loc.detail}  (boot: {loc.boot})")
+            log("test actors: " + ", ".join(f"{role} = {a['edid']} ({a['name']}, {a['ref']})"
+                                            for role, a in (prep.actors or {}).items()))
             lo = prof.apply(prep, opts)
             forms = _forms(prep, m, lo)
             man = mf.build(t.plan, forms, location=loc.to_dict(), bring=testcells.BRING.get(loc.key, []),
@@ -440,6 +447,7 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             prof.sess.collect(game_log)
             log(f"test profile on: {len(prep.active)} plugins: {', '.join(lo)}")
             extra = {"boot_seconds": None, "froze": False, "dry_run": opts.dry_run, "location": loc.to_dict(),
+                     "test_actors": prep.actors,
                      "display": prof.display}
             if opts.dry_run:
                 log("dry run: profile built and staged; not launching")

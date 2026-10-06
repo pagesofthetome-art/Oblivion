@@ -101,7 +101,7 @@ The boot itself:
      arrival spot was behind the Arena gate.
    - It brings the test actors next to you, checks where you are (`GetInCell` / `GetInWorldspace`), and
      runs the steps.
-   - References are named by their **EditorID** (`ForgeArenaDummyRef.GetAV Health`). Each batch line
+   - References are named by their **EditorID** (`SomeBeggarRef.GetAV Health`). Each batch line
      is compiled as a one-line script, and scripts name persistent references that way. Two other
      forms don't work in a batch: `<FormID>.Command` (run 5: "Script command not found") and `prid`
      (run 6: the next batch line ignores the selection).
@@ -138,8 +138,19 @@ These are picked from the test game's own Oblivion.esm, which is only read. The 
 Any vanilla interior works with `--cell <EditorID>`, any worldspace with `--cell world:<EDID>`, and
 any map marker with `--cell "marker:<name>"`. `forge playtest find <text>` searches all three.
 
-`ForgeTestCells.esp` adds **only test actors**, parked in an empty holding cell and moved next to
-the player by the first batch:
+**Test actors are real vanilla beggars** (Yuri's choice: the console already resolves vanilla
+persistent references by EditorID). `vanilla.test_actors` picks them from Oblivion.esm:
+- the NPC's class is Beggar, and it is not essential;
+- the reference is persistent and has an EditorID;
+- NPCs without their own script come first, then the order is by EditorID, so the pick is stable.
+
+The first is **`TestTarget`**, the second **`TestCaster`**. Specs use these role names, and
+`forge playtest cells` prints which beggars they are. The first batch brings both to the player.
+It gives the target 500 health and sets aggression 0 / confidence 100 on both, so a test spell
+doesn't kill the target or start a fight (the test save is thrown away anyway).
+
+`ForgeTestCells.esp` still carries forge-made actors, but they are not used, because it isn't
+proven that the console can name them. It also carries the result globals. The forge actors were:
 - `ForgeArenaDummyRef`: essential, never fights back, 500 health;
 - `ForgeArenaCasterRef`: passive caster for `cast` steps;
 - `ForgeStreetMerchantRef`: barter; work 08-20, off duty 20-08;
@@ -155,10 +166,10 @@ test_plan:
   cell: arena
   steps:
     - addspell: ForgeExampleFireboltSpell
-    - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], save: hp}
-    - cast: {caster: ForgeArenaCasterRef, spell: ForgeExampleFireboltSpell, target: ForgeArenaDummyRef}
+    - check: {ref: TestTarget, fn: GetAV, args: [Health], save: hp}
+    - cast: {caster: TestCaster, spell: ForgeExampleFireboltSpell, target: TestTarget}
     - wait: 3
-    - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], expect: "< $hp"}
+    - check: {ref: TestTarget, fn: GetAV, args: [Health], expect: "< $hp"}
 ```
 Step kinds: `additem removeitem equip addspell cast spawn setav modav moveto weather console wait check`.
 Names resolve to console FormIDs in the test load order (EditorIDs from the mod and the test cells,
