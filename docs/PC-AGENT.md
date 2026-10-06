@@ -49,3 +49,4 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 30 | `30-forge-script-check-pc-handoff.md`: the compiler against vanilla (`script-check`) | done: corpus 10,705/10,720 (99.86%), Oblivion.esm 9,641/9,646 (99.95%); S6 signed off |
 | 31 | `31-forge-ember-ward-pc-handoff.md`: first spec with a compiled script (`ak-ember-ward`) | done: sha256 matched the cloud, lint clean, the decode matches the source |
 | 32 | `32-forge-ember-ward-playtest-pc-handoff.md`: Ember Ward in game (ICArena, result-save globals) | **pending** |
+| 33 | `33-ghidra-mcp-pc-handoff.md`: GhidraMCP setup + read-only research on the CS parameter encodings (optional, after 32) | optional |
