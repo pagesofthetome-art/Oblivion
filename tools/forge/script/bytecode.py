@@ -133,6 +133,7 @@ class Decompiler:
         placed object), so `Quest.s3` reads as `Quest.varName`. Optional."""
         self.t = table
         self.external = external
+        self.uses: list[tuple[int, str]] = []     # (ref index, role) in bytecode order
         self.vars = {v["index"]: v.get("name") or f"var{v['index']}" for v in variables or [] if v.get("index")}
         self.refs = refs or []
         self.issues: list[Issue] = []
@@ -145,7 +146,8 @@ class Decompiler:
             return f"{chr(tag)}{idx}"
         return self.vars[idx]
 
-    def ref(self, idx: int, off: int) -> str:
+    def ref(self, idx: int, off: int, role: str = "") -> str:
+        self.uses.append((idx, role))
         if not 1 <= idx <= len(self.refs):
             if self.refs or idx:
                 self.issues.append(Issue(off, "ref index out of range", f"{idx} of {len(self.refs)}"))
@@ -169,10 +171,10 @@ class Decompiler:
         if tag in LOCAL_TAGS:
             return self.local(r.u16("local index"), tag, off)
         if tag == ord("G"):
-            return self.ref(r.u16("global index"), off)
+            return self.ref(r.u16("global index"), off, "global")
         if tag == ord("r"):
             ri = r.u16("ref index")
-            base = self.ref(ri, off)
+            base = self.ref(ri, off, "extvar")
             off2, tag2 = r.off, r.u8("external variable tag")
             if tag2 in LOCAL_TAGS:
                 return f"{base}.{self.ext_local(ri, tag2, r.u16('external local index'))}"
@@ -212,7 +214,7 @@ class Decompiler:
             tag = r.peek()
             if tag == ord("r"):
                 r.u8()
-                return self.ref(r.u16("form ref index"), off)
+                return self.ref(r.u16("form ref index"), off, "param")
             if tag is not None and tag in LOCAL_TAGS:
                 return self.variable(r)
             raise DecodeError(off, "bad form parameter", f"tag {tag if tag is None else hex(tag)}")
@@ -293,7 +295,7 @@ class Decompiler:
                     # a reference followed by a function call or a variable of its script
                     r.u8()
                     ri = r.u16("ref index")
-                    base = self.ref(ri, off)
+                    base = self.ref(ri, off, "exprref")
                     nxt = r.peek()
                     if nxt == ord("X"):
                         r.u8()
@@ -312,7 +314,7 @@ class Decompiler:
                 continue
             if c == ord("Z"):                     # a reference used as a value
                 r.u8()
-                v = self.ref(r.u16("ref index"), off)
+                v = self.ref(r.u16("ref index"), off, "value")
                 toks.append(("refval", v, off)); out.append(v)
                 continue
             if c == ord("X"):
@@ -334,7 +336,7 @@ class Decompiler:
     def statement(self, r: Reader) -> Stmt:
         start, op = r.off, r.u16("opcode")
         if op == 0x1C:
-            ref = self.ref(r.u16("calling ref"), start + 2)
+            ref = self.ref(r.u16("calling ref"), start + 2, "call")
             opcode, length = r.u16("opcode"), r.u16("length")
             text = f"{ref}.{self.call(r, opcode, length)}"
             return Stmt(start, op, "RefCall", r.off - start, text)
@@ -380,7 +382,7 @@ class Decompiler:
                     f"{cmd.name if cmd else f'op{op:04X}'} {args}".rstrip())
 
     def decode(self, data: bytes) -> Decoded:
-        self.issues, self.commands, self.param_types = [], [], Counter()
+        self.issues, self.commands, self.param_types, self.uses = [], [], Counter(), []
         r, stmts = Reader(data), []
         while r.left():
             try:

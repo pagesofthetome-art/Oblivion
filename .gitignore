@@ -28,4 +28,5 @@ vanilla_commands.jsonl
 forge-script-corpus.jsonl*
 script_log.txt
 decode_log.txt
+check_log.txt
 kb_log.txt

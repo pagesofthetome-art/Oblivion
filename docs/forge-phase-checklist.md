@@ -88,8 +88,11 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] S1 code: the `forge script-decode` decompiler + survey (8 fixture tests).
 - [x] S0+S1 PC run (handoff 28): 26,624 scripts (10,720 with bytecode), 58,408 forms, 31 block types; corpus 2.3 MB, uploaded. The first survey decoded 89.6%.
 - [x] **S1 gate: 100%** of the vanilla corpus decodes with no leftover bytes (cloud, on the uploaded corpus). Expressions are postfix; jump fields, Z refs, `~`, Message/MessageBox layouts and the SCHR high-water mark are all confirmed. See plan §3c.
-- [ ] Confirmation of the 100% on the PC (handoff 29).
-- [ ] S2–S6: the compiler, up to the ≥99% byte-identical gate. S7: OBSE (validated on the PC only).
+- [x] Confirmation of the 100% on the PC (handoff 29): corpus, Oblivion.esm and Knights.esp all decode 100%. S1 signed off.
+- [x] **S2–S6: the compiler.** `forge script-check` gives 99.86% byte-identical SCDA on the vanilla corpus (10,705/10,720); the other 15 are stale data or rare aliases (plan §3d). The reference-list ordering rule matches every identical script.
+- [ ] Confirmation of `script-check` on the PC (handoff 30).
+- [ ] `scripts:` in `kind: plugin` specs: write SCPT records (and attach them) with forge's compiler.
+- [ ] S7: OBSE syntax (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
 - [ ] ~~3b: `script.compile` through the CS bridge~~ replaced by forge's own compiler (above); the CS is an optional cross-check only.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.

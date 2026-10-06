@@ -57,7 +57,9 @@ class CommandTable:
                     r.get("table", "script"), bool(r.get("ref_required")))
         if c.table == "block":
             self.blocks[c.opcode] = c
-            self.block_by_name[c.name.casefold()] = c
+            for n in (c.name, c.alias):
+                if n:
+                    self.block_by_name.setdefault(n.casefold(), c)
             return
         self.by_op[c.opcode] = c
         for n in (c.name, c.alias):

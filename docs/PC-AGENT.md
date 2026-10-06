@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/29-forge-decompiler-confirm-pc-handoff.md`](29-forge-decompiler-confirm-pc-handoff.md): a short confirmation run (no exports, no game/CS). It checks that the decompiler reaches 100% on the PC too, both from the corpus and straight from `Oblivion.esm`. Handoff 27 (CS recon take 3) stays optional. |
+| **Do now** | [`docs/30-forge-script-check-pc-handoff.md`](30-forge-script-check-pc-handoff.md): run forge's new script compiler over the vanilla scripts on the PC (`forge script-check`): no exports, no game/CS. Handoff 27 (CS recon take 3) stays optional. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | §3 of handoff 29 |
+| **Send back** | §3 of handoff 30 |
 
 ## How this works
 
@@ -20,7 +20,7 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 ## Standing rules (from `AGENTS.md` and the forge prompt)
 
-- **Commits:** never commit Bethesda-derived data or local outputs: `vanilla_index.jsonl`, `vanilla_commands.jsonl`, `forge-kb.sqlite`, `kb_log.txt`, `forge-script-corpus.jsonl.gz`, `script_log.txt`, `decode_log.txt`, `forge-builds\`, `_audit\`.
+- **Commits:** never commit Bethesda-derived data or local outputs: `vanilla_index.jsonl`, `vanilla_commands.jsonl`, `forge-kb.sqlite`, `kb_log.txt`, `forge-script-corpus.jsonl.gz`, `script_log.txt`, `decode_log.txt`, `check_log.txt`, `forge-builds\`, `_audit\`.
 - **The GOG copy** (`Oblivion\`) is the clean dev install. **The Steam copy** is the Rebirth+ play setup. Touch the Steam copy only to deploy a finished, packaged mod through Vortex, and only when a handoff says so.
 - **Research mods** are reference only: never in Vortex or either Data folder.
 - **Protected files:** never modify `Oblivion.esm`, official DLC, or other authors' plugins.
@@ -44,4 +44,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 26 | `26-forge-phase3b-plain-cs-recon-pc-handoff.md`: recon with the plain CS + facts for the OBSE decision | plain CS starts (no CSE); Script Edit editor disabled until New; bridge couldn't press toolbar buttons; Data unchanged; CSE needs admin, no skip option; bridge task not elevated |
 | 27 | `27-forge-cs-recon-take3-pc-handoff.md`: recon take 3 (toolbar/menu commands, temporary bridge) | optional, not run yet |
 | 28 | `28-forge-script-corpus-pc-handoff.md`: script corpus export + decompiler survey (S0+S1) | done: 26,624 scripts, 2.3 MB corpus uploaded; first survey 89.6%, raised to 100% in the cloud |
-| 29 | `29-forge-decompiler-confirm-pc-handoff.md`: confirm the 100% decode on the PC | **pending** |
+| 29 | `29-forge-decompiler-confirm-pc-handoff.md`: confirm the 100% decode on the PC | done: corpus, Oblivion.esm, Knights.esp all 100%; S1 signed off |
+| 30 | `30-forge-script-check-pc-handoff.md`: the compiler against vanilla (`script-check`) | **pending** |
