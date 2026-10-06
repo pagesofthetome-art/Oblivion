@@ -23,6 +23,10 @@ TAMRIEL, MARKET = 0x0000003C, 0x0000B000
 WEYE_CELL, MARKET_CELL = 0x0000B101, 0x0000B201
 WEYE_MARKER, MARKET_MARKER = 0x0000C001, 0x0000C002
 DONOR, SHIRT = 0x0000D001, 0x0000D002
+SHOP_CELL = 0x0000A003
+ARENA_GATE, DECOY_DOOR = 0x0000A201, 0x0000A202          # door pair: decoy <-> arena
+SHOP_DOOR, STREET_DOOR = 0x0000A203, 0x0000B301          # door pair: shop <-> market street
+MARKET_PERSIST = 0x0000B200
 
 
 def _top(sig: str, recs: list[Rec]) -> bytes:
@@ -44,12 +48,23 @@ def _marker(fid: int, name: str, x: float, y: float) -> Rec:
                              ("TNAM", b"\x01\x00"), ("DATA", pos(x, y, 100.0))], 0x400)
 
 
-def _exterior(world: int, cell: int, gx: int, gy: int, refs: list[Rec]) -> bytes:
+def _door(fid: int, dest: int, x: float, y: float, z: float = 0.0) -> Rec:
+    """A load door; XTEL = the other door + where the player arrives (x, y, z, rot)."""
+    return Rec("REFR", fid, [("NAME", u32(0x0000E002)), ("XTEL", struct.pack("<I6f", dest, x, y, z, 0.0, 0.0, 1.5)),
+                             ("DATA", pos(0.0, 0.0, 0.0))], 0x400)
+
+
+def _exterior(world: int, cell: int, gx: int, gy: int, refs: list[Rec], temp: list[Rec] = (),
+              persistent_cell: tuple | None = None) -> bytes:
     c = Rec("CELL", cell, [("DATA", b"\x02"), ("XCLC", struct.pack("<ii", gx, gy))])
-    body = c.to_bytes() + _cell_children(cell, refs, [])
+    body = c.to_bytes() + _cell_children(cell, refs, list(temp))
     sub_ = grup(struct.pack("<hh", gy // 8, gx // 8), 5, body)
     block = grup(struct.pack("<hh", gy // 32, gx // 32), 4, sub_)
-    return grup(struct.pack("<I", world), 1, block)
+    pc = b""
+    if persistent_cell:                               # the world's persistent cell (no grid)
+        pfid, prefs = persistent_cell
+        pc = Rec("CELL", pfid, [("DATA", b"\x02")]).to_bytes() + _cell_children(pfid, prefs, [])
+    return grup(struct.pack("<I", world), 1, pc + block)
 
 
 def fake_esm(path: Path) -> Path:
@@ -58,6 +73,7 @@ def fake_esm(path: Path) -> Path:
         _top("CLOT", [Rec("CLOT", SHIRT, [("EDID", zs("LowerClassShirt01")), ("FULL", zs("Shirt"))])]),
         _top("MISC", [Rec("MISC", fid, [("EDID", zs(n)), ("DATA", struct.pack("<if", 1, 0.0))])
                       for fid, n in ((0x0000000A, "Lockpick"), (0x0000000C, "RepairHammer"), (0x0000000F, "Gold001"))]),
+        _top("DOOR", [Rec("DOOR", 0x0000E002, [("EDID", zs("FixtureDoor")), ("MODL", zs("door.nif"))])]),
         _top("STAT", [Rec("STAT", 0x00000010, [("EDID", zs("MapMarker")), ("MODL", zs("marker_map.nif"))]),
                       Rec("STAT", 0x00000034, [("EDID", zs("XMarkerHeading")), ("MODL", zs("marker_arrow.nif"))]),
                       Rec("STAT", 0x0000E001, [("EDID", zs("ArenaFloor")), ("MODL", zs("arena\\floor.nif")),
@@ -76,12 +92,19 @@ def fake_esm(path: Path) -> Path:
                                      ("DATA", b"\x01")])
     floor = [Rec("REFR", 0x0000A100 + i, [("NAME", u32(0x0000E001)), ("DATA", pos(i * 512.0, 0.0, 0.0))])
              for i in range(4)]
-    cells_body = arena.to_bytes() + _cell_children(ARENA_CELL, [], floor) + decoy.to_bytes()
+    shop = Rec("CELL", SHOP_CELL, [("EDID", zs("ICMarketShopFixture")), ("FULL", zs("A Shop")), ("DATA", b"\x01")])
+    cells_body = (arena.to_bytes() + _cell_children(ARENA_CELL, [_door(ARENA_GATE, DECOY_DOOR, 0, -900)], floor)
+                  + decoy.to_bytes() + _cell_children(DECOY_CELL, [_door(DECOY_DOOR, ARENA_GATE, 120, 340, 64)], [])
+                  + shop.to_bytes() + _cell_children(SHOP_CELL, [_door(SHOP_DOOR, STREET_DOOR, 41000, 25100, 10)], []))
     groups.append(grup(b"CELL", 0, grup(struct.pack("<i", 1), 2, grup(struct.pack("<i", 0), 3, cells_body))))
     wrld = (Rec("WRLD", TAMRIEL, [("EDID", zs("Tamriel")), ("FULL", zs("Cyrodiil"))]).to_bytes()
             + _exterior(TAMRIEL, WEYE_CELL, 5, -3, [_marker(WEYE_MARKER, "Weye", 20800.0, -11000.0)])
             + Rec("WRLD", MARKET, [("EDID", zs("ICMarketDistrict")), ("FULL", zs("Market District"))]).to_bytes()
-            + _exterior(MARKET, MARKET_CELL, 10, 6, [_marker(MARKET_MARKER, "Market District", 41500.0, 25000.0)]))
+            + _exterior(MARKET, MARKET_CELL, 10, 6, [], temp=[
+                Rec("REFR", 0x0000B400 + i, [("NAME", u32(0x0000E001)), ("DATA", pos(41000.0 + i, 25000.0, 0))])
+                for i in range(5)],
+                persistent_cell=(MARKET_PERSIST, [_marker(MARKET_MARKER, "Market District", 41500.0, 25000.0),
+                                                  _door(STREET_DOOR, SHOP_DOOR, 0, 50)])))
     groups.append(grup(b"WRLD", 0, wrld))
     hdr = sub("HEDR", struct.pack("<fiI", 1.0, 20, 0x800)) + sub("CNAM", zs("fixture"))
     path.parent.mkdir(parents=True, exist_ok=True)

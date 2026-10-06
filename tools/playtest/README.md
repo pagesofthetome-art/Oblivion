@@ -8,7 +8,7 @@ an optional layout check only. Yuri's Rebirth+ setup (Steam copy, Vortex) is nev
 
 ```
 forge playtest tools\playtest\examples\example-firebolt.yaml          boot, check, keep playing
-forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open|<InteriorEditorID>|marker:<Map marker>] [--quit] [--dry-run]
+forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open|<InteriorEditorID>|world:<World>|marker:<Map marker>] [--quit] [--bright] [--dry-run]
 forge playtest make-save                     one time: New Game with the pad -> test save (boot plan B)
 forge playtest find <text>                   search vanilla interiors and map markers for --cell
 forge playtest restore | status | cells      fix-up; hashes; test actors + chosen locations
@@ -59,16 +59,27 @@ Windows for the folders, not the environment); a second Windows user (too heavy)
 
 ## Quick boot
 
-1. `obse_loader.exe` starts with the intro videos switched off.
+The test ini is your real Oblivion.ini with these changes:
+- intro videos off, its own save folder, no autosaves;
+- **windowed at the desktop size**, and forge removes the window border (as `Controller --prepare-display`
+  does for play). Run 2 drew 1920x1080 into a 1280x720 desktop, which put the menus off-screen;
+- `bUse Joystick=0`, so the pad goes through NorthernUI only. For the run, NorthernUI uses **the play
+  setup's NorthernUI.ini**: it is copied in from the Steam Data folder, read only, and the GOG copy's
+  own file is restored afterwards. The controller companion starts in NorthernUI mode;
+- `--bright` adds `bFullBrightLighting=1` for dark places.
+
+The boot itself:
+1. `obse_loader.exe` starts the game.
 2. **Plan A:** at the main menu the driver opens the console and types the location's boot
-   command: `coc <Interior>`, or `cow <World> x y` for an exterior. Oblivion then starts a default
-   character right there: no character creation, no tutorial dungeon.
-3. **Plan B:** used if plan A starts no load within 20 s and a test save exists. It presses Enter
-   (Continue), which loads `Saves\ForgePlaytest\ForgePlaytestBase.ess`, then types the boot
-   command in the in-game console. Make that save once with `forge playtest make-save`: you press
-   New Game with the pad, and forge takes over as soon as you can walk.
-4. After the load, `bat fpt1` (then `fpt2`… after each `wait`) brings the test actors next to you,
-   checks where you are (`GetInCell` / `GetInWorldspace`), and runs the steps.
+   command: `coc <Interior>`, or `cow <World> x y`.
+3. **Plan B:** used if plan A starts no load within 20 s and the test save exists. Forge **beeps**:
+   press Cross on **CONTINUE**. That loads `Saves\ForgePlaytest\ForgePlaytestBase.ess`, then the
+   boot command runs from the in-game console. Make that save once with `forge playtest make-save`
+   (New Game with the pad; forge takes over once you can walk). Forge never presses keys in the
+   main menu itself: in run 2, Down+Enter opened a stray message box.
+4. After the load, `bat fpt1` puts you on a **door arrival spot** (where a load door lets you out:
+   always walkable floor). It then brings the test actors next to you, checks where you are
+   (`GetInCell` / `GetInWorldspace`), and runs the steps.
 5. Boot time is measured from the command to "loaded, player in control". The target is 30 s.
 
 Every run folder (`forge-builds\playtest\runs\<time>\`) also keeps:
@@ -85,12 +96,12 @@ These are picked from the test game's own Oblivion.esm, which is only read. The 
 
 | key | where | for |
 |---|---|---|
-| `arena` | the Arena interior (EditorID/name says Arena; the one with the most references wins) | spells and combat |
-| `street` | the *Market District* map marker in the Imperial City | doors, shops, crowds, a merchant |
+| `arena` | the Imperial City Arena's fighting floor: the busiest interior whose EditorID/name says Arena, side rooms (holding, bloodworks, quarters…) excluded; you stand where the gate lets you in | spells and combat |
+| `street` | the Market District worldspace: its busiest cell, outside a shop door | doors, shops, crowds, a merchant |
 | `open` | the *Weye* map marker (shore road west of the city) | weather (`fw`) and projectiles |
 
-Any vanilla interior works with `--cell <EditorID>`, and any map marker with `--cell "marker:<name>"`.
-`forge playtest find <text>` searches both.
+Any vanilla interior works with `--cell <EditorID>`, any worldspace with `--cell world:<EDID>`, and
+any map marker with `--cell "marker:<name>"`. `forge playtest find <text>` searches all three.
 
 `ForgeTestCells.esp` adds **only test actors**, parked in an empty holding cell and moved next to
 the player by the first batch:

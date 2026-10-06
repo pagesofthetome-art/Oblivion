@@ -18,7 +18,8 @@ class FakeGame:
     def __init__(self, game_dir: Path, behaviour: dict | None = None):
         self.dir = game_dir
         self.b = {"menu_at": 3.0, "load_seconds": 2.0, "damage": 25.0, "freeze_at": None, "printc": True,
-                  "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None}
+                  "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None,
+                  "continue_after": None}
         self.b.update(behaviour or {})
         self.state = "starting"
         self.console_open = False
@@ -44,6 +45,9 @@ class FakeGame:
         if (self.state == "menu" and self.b["new_game_after"] is not None
                 and now - self.menu_since >= self.b["new_game_after"]):
             self.cell, self.state, self.t_load = "TutorialPrison", "loading", now     # Yuri pressed New
+        if (self.state == "menu" and self.b["continue_after"] is not None
+                and now - self.menu_since >= self.b["continue_after"]):
+            self.cell, self.state, self.t_load = "ArenaArenaFixture", "loading", now  # Yuri pressed Continue
         if self.state == "loading" and now - self.t_load >= self.b["load_seconds"]:
             self.state = "game"
         if self.b["freeze_at"] is not None and now - self.started >= self.b["freeze_at"]:
@@ -65,13 +69,10 @@ class FakeGame:
             self.typed = ""
         elif k == "esc":
             self.console_open = False
-        elif k == "enter" and self.state == "menu" and not self.console_open:
-            sd = self.b["save_dir"]
-            if sd and any(Path(sd).glob("*.ess")):                                 # Continue
-                self.cell, self.state, self.t_load = "ArenaArenaFixture", "loading", self._now
         elif k == "enter" and self.console_open:
             self.run(self.typed)
             self.typed = ""
+        # Enter at the main menu does nothing (as on the PC in run 2); Yuri presses Continue (continue_after)
 
     def text(self, t: str):
         if self.console_open:
@@ -141,7 +142,7 @@ class FakeGame:
             self.write(f"GetActorValue >> {self.av['health']:.2f}")
         elif fn == "getdead":
             self.write("GetDead >> 0.00")
-        elif fn == "moveto":
+        elif fn in ("moveto", "setpos", "setangle"):
             pass
         else:
             self.write(f"Script command \"{fn}\" not found.")
@@ -222,6 +223,13 @@ class FakePlatform(plat.Platform):
 
     def freeze_tick(self, win, focused):
         return False
+
+    def desktop_size(self):
+        return (1280, 720)
+
+    def make_borderless(self, win):
+        self.borderless = True
+        return True
 
     def screenshot(self, win, path):
         Path(path).write_bytes(b"\x89PNG fake")

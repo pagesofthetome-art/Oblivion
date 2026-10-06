@@ -85,9 +85,12 @@ class VanillaTests(unittest.TestCase):
 
     def test_defaults(self):
         a = vanilla.resolve("arena", self.idx)
-        self.assertEqual((a.boot, a.cell_edid), ("coc ArenaArenaFixture", "ArenaArenaFixture"))
+        self.assertEqual((a.boot, a.cell_edid), ("coc ArenaArenaFixture", "ArenaArenaFixture"),
+                         "'Arena Storage' is a side room and excluded")
+        self.assertEqual(a.setpos, [120.0, 340.0, 64.0, 1.5], "stands where the gate lets you in")
         s = vanilla.resolve("street", self.idx)
-        self.assertEqual((s.boot, s.moveto, s.world_edid), ("cow ICMarketDistrict 10 6", "0000C002", "ICMarketDistrict"))
+        self.assertEqual((s.boot, s.world_edid), ("cow ICMarketDistrict 10 6", "ICMarketDistrict"))
+        self.assertEqual(s.setpos[:2], [41000.0, 25100.0], "outside a shop door")
         o = vanilla.resolve("weather", self.idx)
         self.assertEqual(o.boot, "cow Tamriel 5 -3")
 

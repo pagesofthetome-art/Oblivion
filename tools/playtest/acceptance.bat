@@ -2,6 +2,7 @@
 rem  TES4Forge Track E acceptance run. Close Oblivion (and the CS) first, then double-click this.
 rem  Hands off the keyboard while the game boots: the test types into the game console for ~30 s.
 rem  If it says "Run forge playtest make-save once": run  forge playtest make-save  (New Game with the pad), then this again.
+rem  acceptance.bat --no-pause   skips the final pause (for scripts).
 rem  Everything it prints is saved to forge-builds\playtest\acceptance.txt - send that file back.
 setlocal
 cd /d "%~dp0..\.."
@@ -19,7 +20,7 @@ call forge.cmd playtest status >> "%OUT%" 2>&1
 echo.>> "%OUT%" & echo === 1. dry run: profile on, then off again, no game>> "%OUT%"
 call forge.cmd playtest "%EX%" --dry-run >> "%OUT%" 2>&1
 echo.>> "%OUT%" & echo === 2. real run: boot into the arena, run the checks, quit>> "%OUT%"
-echo Starting the test game. Hands off the keyboard until it quits by itself...
+echo Starting the test game. Hands off the keyboard. If it BEEPS, press Cross on CONTINUE.
 call forge.cmd playtest "%EX%" --quit >> "%OUT%" 2>&1
 echo exit code %ERRORLEVEL% (0 = PASS)>> "%OUT%"
 echo.>> "%OUT%" & echo === 3. forge test>> "%OUT%"
@@ -29,4 +30,4 @@ call forge.cmd playtest status >> "%OUT%" 2>&1
 type "%OUT%"
 echo.
 echo Saved to %OUT%
-pause
+if /i not "%~1"=="--no-pause" pause

@@ -28,6 +28,7 @@ marker is a failure. "It launched" is never a pass.
 from __future__ import annotations
 
 import json
+import math
 import re
 import secrets
 from pathlib import Path
@@ -239,6 +240,10 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
     head = [f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"']
     if location.get("moveto"):
         head.append(f"player.moveto {location['moveto']}")
+    if location.get("setpos"):
+        x, y, z, heading = location["setpos"]
+        head += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}",
+                 f"player.setangle z {math.degrees(heading) % 360:.1f}"]
     for ref, dx, dy, dz in bring:
         head.append(f"{forms.form(ref)}.moveto player {dx} {dy} {dz}")
     head.append(f'printc "{marker("CELL", location.get("cell_edid") or location.get("world_edid"))}"')

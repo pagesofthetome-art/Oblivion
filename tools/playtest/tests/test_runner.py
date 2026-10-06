@@ -20,7 +20,12 @@ class RunnerTests(MachineCase):
         self.logs: list[str] = []
         (self.m.data / "OBSE" / "Plugins").mkdir(parents=True)
         (self.m.data / "OBSE" / "Plugins" / "NorthernUI.dll").write_bytes(b"dll")
+        (self.m.data / "OBSE" / "Plugins" / "NorthernUI.ini").write_bytes(b"[GOG fresh]\r\nbCursor=1\r\n")
+        steam_nui = self.fx["steam"] / "Data" / "OBSE" / "Plugins"
+        steam_nui.mkdir(parents=True)
+        (steam_nui / "NorthernUI.ini").write_bytes(b"[Yuri play setup]\r\nbCursor=0\r\n")
         self.gog_before = tree_hash(self.fx["gog"])
+        self.steam_before = tree_hash(self.fx["steam"])
 
     def opts(self, **kw):
         return runner.Options(log=self.logs.append, quit_when_done=True, **kw)
@@ -51,6 +56,13 @@ class RunnerTests(MachineCase):
         self.assertTrue(any("main-menu" in s for s in shots) and any("in-game" in s for s in shots), shots)
         trace = [json.loads(l) for l in (run / "boot-trace.jsonl").read_text().splitlines()]
         self.assertTrue(any(1044 in (t.get("menus") or []) for t in trace), "menu stack is traced")
+        ini = (run / "Oblivion.test.ini").read_bytes().decode("cp1252")
+        for line in ("iSize W=1280", "iSize H=720", "bFull Screen=0", "bUse Joystick=0", "SIntroSequence="):
+            self.assertIn(line, ini)
+        self.assertTrue(getattr(p, "borderless", False), "window made borderless")
+        companion = [a for a in p.spawned if "oblivion_controller.py" in " ".join(a)]
+        self.assertTrue(companion and companion[0][-2:] == ["--mode", "northernui"], companion)
+        self.assertTrue(any("NorthernUI.ini" in l for l in self.logs))
         plugins = (run / "Plugins.test.txt").read_text().split()
         self.assertEqual([x for x in plugins if x.endswith((".esm", ".esp"))],
                          ["Oblivion.esm", "DLCShiveringIsles.esp", "ForgeExampleFirebolt.esp", "ForgeTestCells.esp"])
@@ -59,7 +71,7 @@ class RunnerTests(MachineCase):
         p = self.fake()
         res = runner.run(EXAMPLE, self.opts(cell="street"), self.m, p)
         self.assertEqual(p.game.history[0], "cow ICMarketDistrict 10 6")
-        self.assertIn("player.moveto 0000C002", p.game.history)
+        self.assertIn("player.setpos x 41000.0", p.game.history, "stands where the shop door lets you out")
         self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
         self.assertRealSetupUntouched()
 
@@ -74,14 +86,27 @@ class RunnerTests(MachineCase):
     def test_menu_console_fails_continue_from_test_save(self):
         self.m.save_dir.mkdir(parents=True)
         (self.m.save_dir / "ForgePlaytestBase.ess").write_bytes(b"save")
-        p = self.fake(menu_console=False)
+        p = self.fake(menu_console=False, continue_after=40.0)
         res = runner.run(EXAMPLE, self.opts(), self.m, p)
         self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs))
+        self.assertTrue(any("BEEP" in l for l in self.logs))
         self.assertIn(res["boot_strategy"], ("B: Continue + in-game console",
                                              "A: console at the main menu (+ again in game)"))
         self.assertEqual(p.game.cell, "ArenaArenaFixture")
         self.assertEqual(p.game.history[-1], "qqq")
         self.assertRealSetupUntouched()
+
+    def test_bright_option(self):
+        res = runner.run(EXAMPLE, self.opts(bright=True, dry_run=True), self.m, self.fake())
+        ini = (Path(res["run_dir"]) / "Oblivion.test.ini").read_bytes().decode("cp1252")
+        self.assertIn("bFullBrightLighting=1", ini)
+        self.assertRealSetupUntouched()
+
+    def test_discord_note(self):
+        p = self.fake()
+        p.others = [(55, "Discord.exe", "C:/x/Discord.exe")]
+        runner.run(EXAMPLE, self.opts(dry_run=True), self.m, p)
+        self.assertTrue(any("Discord" in l for l in self.logs))
 
     def test_make_save(self):
         p = self.fake(new_game_after=20.0)

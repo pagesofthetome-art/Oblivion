@@ -78,6 +78,15 @@ class Platform:
         """Did the top part of the screen change like the console opening? (screen fallback)"""
         return False
 
+    def desktop_size(self) -> tuple[int, int] | None:
+        return None
+
+    def make_borderless(self, win) -> bool:
+        return False
+
+    def beep(self) -> None:
+        pass
+
     def sleep(self, s: float) -> None:
         time.sleep(s)
 
@@ -238,6 +247,20 @@ class WinPlatform(Platform):
 
     def hung(self, win):
         return bool(win) and bool(self.u.IsHungAppWindow(win[0]))
+
+    def desktop_size(self):
+        return self.osk.screen_size()
+
+    def make_borderless(self, win):
+        return bool(win) and self.osk.make_borderless(win[0])
+
+    def beep(self):
+        try:
+            import winsound
+            for f in (880, 660, 880):
+                winsound.Beep(f, 180)
+        except Exception:
+            pass
 
     def grab(self, win):
         try:

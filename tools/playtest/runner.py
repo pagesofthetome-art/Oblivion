@@ -48,6 +48,7 @@ class Options:
     boot_timeout: float = 120.0
     hang_seconds: float = 20.0
     companion: bool = True
+    bright: bool = False                  # bFullBrightLighting=1 in the test ini (dark places)
     log: object = print
 
 
@@ -210,6 +211,9 @@ def preflight(m: profile.Machine, p: plat.Platform) -> list[str]:
     if not (m.data / "OBSE" / "Plugins" / "NorthernUI.dll").is_file():
         notes.append("NorthernUI is not installed in the test game, so the pad works only through the "
                      "controller companion. Install it there: py Controller\\install_northernui.py")
+    if any(n.lower() == "discord.exe" for _, n, _ in p.processes()):
+        notes.append("Discord is running: its in-game overlay pops up over the test game. Turn the overlay "
+                     "off for Oblivion (Discord > Settings > Game Overlay).")
     return notes
 
 
@@ -232,11 +236,20 @@ class _Profile:
         self.sess = profile.Session(m, log=self.log)
         return self
 
-    def apply(self, prep: Prepared) -> list[str]:
+    def apply(self, prep: Prepared, opts: Options) -> list[str]:
         m, sess = self.m, self.sess
         sess.begin()
         sess.swap_in(m.plugins_txt, profile.plugins_txt(prep.active))
-        sess.swap_in(m.ini, profile.test_ini(self.real_ini))
+        sess.swap_in(m.ini, profile.test_ini(self.real_ini, profile.display_overrides(self.p.desktop_size(),
+                                                                                      opts.bright)))
+        # the pad should behave exactly as in the play setup: use its NorthernUI.ini for the run
+        rel = Path("OBSE") / "Plugins" / "NorthernUI.ini"
+        for play in m.play_dirs:
+            src, dst = play / "Data" / rel, m.data / rel
+            if src.is_file() and dst.is_file() and src.read_bytes() != dst.read_bytes():
+                sess.swap_file(dst, src.read_bytes())
+                self.log("using the play setup's NorthernUI.ini for this run (restored afterwards)")
+                break
         shutil.copy2(m.plugins_txt, self.run_dir / "Plugins.test.txt")
         shutil.copy2(m.ini, self.run_dir / "Oblivion.test.ini")
         newest = max((m.data / n).stat().st_mtime for n in prep.active if (m.data / n).is_file())
@@ -287,7 +300,7 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             prep = prepare(t, opts, m)
             loc = prep.location
             log(f"location: {loc.label}: {loc.detail}  (boot: {loc.boot})")
-            lo = prof.apply(prep)
+            lo = prof.apply(prep, opts)
             forms = _forms(prep, m, lo)
             man = mf.build(t.plan, forms, location=loc.to_dict(), bring=testcells.BRING.get(loc.key, []),
                            plugin=t.plugin.name if t.plugin else None, spec=t.spec_name)
@@ -329,7 +342,7 @@ def make_save(opts: Options, m: profile.Machine | None = None, p: plat.Platform 
     prof = _Profile(m, p, log, run_dir)
     with prof:
         prep = prepare(Target(None, mf.parse_plan(None), None), Options(cell=opts.cell), m)
-        prof.apply(prep)
+        prof.apply(prep, opts)
         try:
             drv = _launch(m, p, prof.sess, opts, t0, run_dir)["driver"]
         except PlaytestError as exc:
@@ -385,7 +398,7 @@ def _launch(m, p: plat.Platform, sess: profile.Session, opts: Options, t0: float
     p.spawn_detached([profile.python_exe(), str(Path(__file__).with_name("guardian.py")), str(m.state_dir),
                       "--game", str(pid), "--forge", str(os.getpid())])
     if opts.companion:
-        _start_companion(p)
+        _start_companion(p, (m.data / "OBSE" / "Plugins" / "NorthernUI.dll").is_file())
     return {"pid": pid, "events": events, "driver": Driver(p, pid, opts, note, run_dir, t0)}
 
 
@@ -452,10 +465,13 @@ def _game_pid(p: plat.Platform, game_dir: Path) -> int | None:
     return None
 
 
-def _start_companion(p: plat.Platform) -> None:
+def _start_companion(p: plat.Platform, northernui: bool) -> None:
+    """The controller companion, in NorthernUI mode when the test game has it (pad only, no
+    stick-driven mouse cursor: run 2's companion guessed from the Steam copy)."""
     script = plat.CONTROLLER / "oblivion_controller.py"
     if script.is_file():
-        p.spawn_detached([profile.python_exe(), str(script), "--nogui"])
+        p.spawn_detached([profile.python_exe(), str(script), "--nogui", "--mode",
+                          "northernui" if northernui else "standalone"])
 
 
 class Driver:
@@ -519,6 +535,10 @@ class Driver:
         if not p.alive(self.pid):
             return
         win = p.window(self.pid)
+        if win and not getattr(self, "_borderless", False):
+            self._borderless = True
+            if p.make_borderless(win):
+                self.note("made the game window borderless at the desktop size")
         reported = p.freeze_tick(win, p.focused(self.pid))
         hung = p.hung(win)
         now = p.now()
@@ -655,19 +675,18 @@ class Driver:
             raise PlaytestError("the main-menu console did not start a game, and there is no test save for "
                                 "plan B. Run `forge playtest make-save` once, then try again. Screenshots: "
                                 f"{self.shots}")
-        # Strategy B: Continue (newest save in Saves\ForgePlaytest), then the console in game
+        # Strategy B: Yuri presses Cross on CONTINUE (newest save in Saves\ForgePlaytest), then the
+        # console in game. Keys at the main menu are not reliable (run 2: Enter did nothing, Down+Enter
+        # opened a message box), so this one press is his.
         self.phase = "boot-B-continue"
         self._focus()
         self.p.press("esc")                               # close the console if A left it open
-        self.p.sleep(0.5)
-        self.p.press("enter")                             # NorthernUI: Enter activates the focused Continue
-        self.note("B: pressed Enter (Continue) at the main menu")
-        if not self.wait_load_start(10):
-            self.p.press("down", "enter")
-            self.note("B: pressed Down, Enter")
-            if not self.wait_load_start(10):
-                self.shot("B-no-load")
-                raise PlaytestError(f"Continue did not load the test save (menus {self._menus()})")
+        self.p.beep()
+        self.opts.log("\n  >>> BEEP: press Cross on CONTINUE (the test save). Forge does the rest.\n")
+        self.note("B: waiting for Continue (Cross on the pad)")
+        if not self.wait_load_start(120):
+            self.shot("B-no-load")
+            raise PlaytestError(f"nobody pressed Continue within 2 minutes (menus {self._menus()})")
         if not self.wait_loaded(self.opts.boot_timeout):
             self.shot("B-load-timeout")
             raise PlaytestError("the test save never finished loading")

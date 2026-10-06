@@ -35,6 +35,20 @@ class SwapRestoreTests(MachineCase):
         self.assertRealSetupUntouched()
         self.assertFalse((self.m.data / "meshes").exists(), "created folders are removed")
 
+    def test_swap_file_restores_an_existing_game_file(self):
+        target = self.m.data / "OBSE" / "Plugins" / "NorthernUI.ini"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"gog")
+        before = target.stat().st_mtime_ns
+        s = self.swap()
+        s.swap_file(target, b"play setup")
+        self.assertEqual(target.read_bytes(), b"play setup")
+        s.restore()
+        self.assertEqual(target.read_bytes(), b"gog")
+        self.assertEqual(target.stat().st_mtime_ns, before)
+        target.unlink(); target.parent.rmdir(); target.parent.parent.rmdir()
+        self.assertRealSetupUntouched()
+
     def test_restore_is_idempotent(self):
         self.swap().restore()
         self.assertEqual(profile.restore(self.m), [])

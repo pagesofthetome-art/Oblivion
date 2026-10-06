@@ -30,6 +30,7 @@ def register(sub) -> None:
     p.add_argument("--quit", action="store_true", help="quit the game when the checks are done")
     p.add_argument("--dry-run", action="store_true", help="build, swap and stage the profile, then restore; no launch")
     p.add_argument("--no-companion", action="store_true", help="do not start Controller\\oblivion_controller.py")
+    p.add_argument("--bright", action="store_true", help="full-bright lighting in the test game (dark places)")
     p.add_argument("--boot-timeout", type=float, default=120.0)
     p.add_argument("--hang-seconds", type=float, default=20.0, help="confirmed freeze this long = kill the test game")
     p.add_argument("--json", action="store_true")
@@ -77,7 +78,7 @@ def cmd_playtest(a) -> int:
             return 0
         if a.target == "make-save":
             res = runner.make_save(runner.Options(cell=a.cell, boot_timeout=a.boot_timeout,
-                                                  companion=not a.no_companion), m)
+                                                  companion=not a.no_companion, bright=a.bright), m)
             print(json.dumps(res, indent=1) if a.json else
                   (f"test save made: {res['save']}" if res.get("made") else f"no save made: {res.get('error')}"))
             return 0 if res.get("made") else 2
@@ -99,7 +100,8 @@ def cmd_playtest(a) -> int:
         return 0
     opts = runner.Options(cell=a.cell, manifest=Path(a.manifest) if a.manifest else None, dry_run=a.dry_run,
                           quit_when_done=a.quit, boot_timeout=a.boot_timeout, hang_seconds=a.hang_seconds,
-                          companion=not a.no_companion, log=(lambda s: None) if a.json else print)
+                          companion=not a.no_companion, bright=a.bright,
+                          log=(lambda s: None) if a.json else print)
     try:
         res = runner.run(a.target, opts, m)
     except (runner.PlaytestError, profile.ProfileError, mf.ManifestError, ValueError) as e:  # noqa: B014

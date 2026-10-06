@@ -51,7 +51,20 @@ INI_OVERRIDES = [
     ("GamePlay", "bSaveOnWait", "0"),
     ("GamePlay", "bSaveOnTravel", "0"),
     ("GamePlay", "bSaveOnInteriorExteriorSwitch", "0"),
+    ("Controls", "bUse Joystick", "0"),          # the pad goes through NorthernUI, as in the play setup
 ]
+
+
+def display_overrides(desktop: tuple[int, int] | None, bright: bool = False) -> list[tuple[str, str, str]]:
+    """Render at the desktop size, windowed (forge removes the border), like the play setup's
+    Controller --prepare-display. Run 2 rendered 1920x1080 into a 1280x720 desktop: menus off-screen."""
+    out = []
+    if desktop:
+        w, h = desktop
+        out += [("Display", "bFull Screen", "0"), ("Display", "iSize W", str(w)), ("Display", "iSize H", str(h))]
+    if bright:
+        out.append(("Display", "bFullBrightLighting", "1"))
+    return out
 
 
 class ProfileError(RuntimeError):
@@ -314,6 +327,21 @@ class Session:
         if not any(Path(s["target"]) == target for s in self.j["swaps"]):
             raise ProfileError(f"{target} is not journaled")
         self.m.check_writable(target)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _fsync_write(target, data)
+
+    def swap_file(self, target: Path, data: bytes) -> None:
+        """Replace an existing file for the run (backed up first, restored byte for byte)."""
+        self.m.check_writable(target)
+        if any(Path(s["target"]) == target for s in self.j["swaps"]):
+            raise ProfileError(f"{target} is already swapped")
+        backup = self.m.profile_dir / "backup" / f"{len(self.j['swaps'])}-{target.name}"
+        entry = {"target": str(target), "existed": target.is_file()}
+        if target.is_file():
+            shutil.copy2(target, backup)
+            entry.update(backup=str(backup), sha256=sha256(target))
+        self.j["swaps"].append(entry)
+        self._save()                                          # journal first, then the write
         target.parent.mkdir(parents=True, exist_ok=True)
         _fsync_write(target, data)
 

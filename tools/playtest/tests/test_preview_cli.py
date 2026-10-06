@@ -44,8 +44,10 @@ class PreviewTests(unittest.TestCase):
 
     def test_vanilla_cell(self):
         d = preview.extract_vanilla_cell(self.esm, fixtures.ARENA_CELL, "ArenaArenaFixture", "Arena")
-        self.assertEqual(len(d["cells"][0]["items"]), 4)
-        self.assertEqual(d["cells"][0]["items"][0]["base"], "ArenaFloor")
+        items = d["cells"][0]["items"]
+        self.assertEqual(len(items), 5)
+        self.assertEqual(sum(1 for i in items if i["base"] == "ArenaFloor"), 4)
+        self.assertEqual(sum(1 for i in items if i["kind"] == "door"), 1)
 
     def test_page_from_shared_template(self):
         out = preview.build_page(self.esp, self.dir / "p.html", "Fixture mod")
