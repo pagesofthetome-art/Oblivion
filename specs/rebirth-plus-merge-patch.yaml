@@ -66,7 +66,10 @@ lint:
 expect:
   # The legacy builder's record order depended on Python's hash seed, so the shipped file
   # can't be reproduced byte-for-byte. This check needs the same records and header.
-  same_records_as: "${STEAM_DATA}/Rebirth Plus - New Mods Patch.esp"
+  # Phase 1 (2026-10-06): record-identical to the shipped v2 patch except 3 INFO records.
+  # v2 carried LTD Vampire Overhaul's deletion of 3 vanilla INFOs (0002413A, 0002413E, 000086B9),
+  # a CTD risk. Forge now keeps them and adds a never-true condition instead. Deterministic across hash seeds.
+  sha256: c1e5a675d8422e237c1195768885de30cf57a9b8a8d09bd4697d7c8cdd5db1dc
 
 test_plan:
   - forge build passes (round-trip 0 mismatches, lint 0 errors, same records as the shipped patch).

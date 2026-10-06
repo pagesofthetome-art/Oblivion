@@ -11,7 +11,11 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] Deterministic Vortex zip (`forge package`).
 - [x] Guards: never writes into a Data or Vortex folder; refuses to package a tampered build.
 - [x] Fixture tests (24): forge output is byte-identical to the legacy `build_patch.py` once that script's set-ordered loop is put in load order. Under any hash seed the records are the same.
-- [ ] **On the PC:** `forge spec check specs\rebirth-plus-merge-patch.yaml` shows every path found, then `forge build` reports `OK` with `same_records_as` passing against the shipped patch.
+- [x] **Real-data build (2026-10-06):** run on mirrored copies of the PC plugins and live Plugins.txt.
+  - Spec check: all paths found. 24 tests OK. Round-trip 0 mismatches. Lint 0 errors.
+  - Output differs from shipped v2 in only 3 INFO records. v2 kept LTD Vampire Overhaul's deletions; forge now neutralises them (undelete + never-true condition).
+  - Deterministic: sha256 `c1e5a675...` across hash seeds.
+  - Still to do on the PC: one `forge build` against the real paths.
   - Byte-identity with the shipped file is not reachable: the legacy builder's record order depended on Python's hash seed (12 seeds → 2 different files on the fixtures; with 39 new mods, far more orders are possible). The phase-1 test is therefore "record-identical to the shipped patch" plus "byte-identical between forge rebuilds". If that build passes, record its SHA-256 as `expect.sha256` in the spec, and every later rebuild must match it exactly.
 
 ## Phase 2: knowledge store

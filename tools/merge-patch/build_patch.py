@@ -8,6 +8,27 @@ VAN = '/mnt/user-data/uploads/common--Oblivion/Data/Oblivion.esm'
 PATCH = 'Rebirth Plus - New Mods Patch.esp'
 CFG = json.load(open('/home/claude/modscan/build_cfg.json'))
 
+
+UDR_STAT_KEY = 'undeleted_INFO'
+def _undelete(m, winner, sig, stats):
+    """A plugin deleted a master record. Deleting master records can CTD, so keep the
+    record and, for INFO, add a never-true condition (GetRandomPercent < 0) instead."""
+    import struct as _s
+    m.flags = winner.flags & ~0x20
+    if sig == 'INFO':
+        ctda = ('CTDA', bytes([0x80, 0, 0, 0]) + _s.pack('<fIIII', 0.0, 77, 0, 0, 0), ())
+        subs = list(m.subs)
+        idx = [i for i, s in enumerate(subs) if s[0] == 'CTDA']
+        if idx:
+            pos = idx[-1] + 1
+        else:
+            pos = next((i for i, s in enumerate(subs) if s[0] in ('TCLT', 'TCLF', 'SCHR', 'SCDA', 'SCTX', 'SCRO', 'NEXT')), len(subs))
+        subs.insert(pos, ctda)
+        m.subs = subs
+        stats[UDR_STAT_KEY] += 1
+    else:
+        stats['undeleted_' + sig] += 1
+
 def find_new(name):
     for l in open('/home/claude/modscan/selpaths.txt').read().split('\n') + CFG.get('extra_paths', []):
         if l and os.path.basename(l) == name:
@@ -114,7 +135,10 @@ for k, plugs in cand.items():
     if m.subs == winner.subs:
         stats['same_as_winner'] += 1
         continue
-    m.flags = winner.flags
+    if winner.flags & 0x20:
+        _undelete(m, winner, sig, stats)
+    else:
+        m.flags = winner.flags
     def _seq(r):
         out = []
         for name in units(r).keys():
