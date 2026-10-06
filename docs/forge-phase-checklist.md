@@ -86,8 +86,9 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] **Direction change (Yuri, 2026-10-06):** forge gets its **own script compiler**, validated against every vanilla script; the CS becomes an optional cross-check. Plan `docs/forge-script-compiler-plan.md` **approved**. The corpus may be uploaded to the cloud. OBSE validation against research-mod scripts happens on the PC only.
 - [x] S0 code: `forge kb export-scripts` (corpus bundle) + the exe's block-type table in `export-commands`.
 - [x] S1 code: the `forge script-decode` decompiler + survey (8 fixture tests).
-- [ ] S0+S1 PC run (handoff 28): corpus exported, survey reported, corpus uploaded.
-- [ ] S1 gate: 100% of the vanilla corpus decodes with no leftover bytes.
+- [x] S0+S1 PC run (handoff 28): 26,624 scripts (10,720 with bytecode), 58,408 forms, 31 block types; corpus 2.3 MB, uploaded. The first survey decoded 89.6%.
+- [x] **S1 gate: 100%** of the vanilla corpus decodes with no leftover bytes (cloud, on the uploaded corpus). Expressions are postfix; jump fields, Z refs, `~`, Message/MessageBox layouts and the SCHR high-water mark are all confirmed. See plan §3c.
+- [ ] Confirmation of the 100% on the PC (handoff 29).
 - [ ] S2–S6: the compiler, up to the ≥99% byte-identical gate. S7: OBSE (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
 - [ ] ~~3b: `script.compile` through the CS bridge~~ replaced by forge's own compiler (above); the CS is an optional cross-check only.

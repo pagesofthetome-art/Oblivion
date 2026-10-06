@@ -1,6 +1,6 @@
 # TES4Forge's own script compiler: evaluation and plan
 
-**Status:** approved by Yuri (2026-10-06). S0 and S1 are built; their PC run is handoff 28.
+**Status:** approved by Yuri (2026-10-06). **S0 and S1 are done:** the corpus was exported on the PC (handoff 28; 26,624 scripts, 10,720 with bytecode), and the decompiler decodes **100%** of it with no leftover bytes. The format is in `tools/forge/script/bytecode.py`. Next: S2.
 **Decisions (Yuri, 2026-10-06):**
 1. The plan is approved. The PC exports the vanilla script corpus (S0), and Yuri uploads it to the cloud session for local iteration. It is never committed.
 2. The research mods' OBSE scripts may be used for validation (S7), **on the PC only**: pass rates and failure counts may come back to the cloud; script text and bytes stay on the PC.
@@ -46,7 +46,7 @@ For every script (SCPT records, plus the result scripts inside QUST stages, INFO
 | Step | What | Check |
 |---|---|---|
 | S0 | `forge kb export-scripts`: a corpus file (SCTX, SCDA, SCRO/SCRV, SLSD/SCVR, SCHR for every script in Oblivion.esm + DLC), git-ignored. Also extend `export-commands` to read the **block-type table** (GameMode, OnActivate, ScriptEffectStart, …) from `Oblivion.exe`, next to the 369 script commands. | Counts match `layout-check`. |
-| S1 | Decompiler: SCDA → token listing. | 100% of the corpus decodes with no leftover bytes. |
+| S1 | Decompiler: SCDA → token listing. **Done: 100% (10,720/10,720).** | 100% of the corpus decodes with no leftover bytes. |
 | S2 | Compiler, statements without expressions: blocks, calls with parameters, `return`, variables. | `forge script-check` (below), measured per construct. |
 | S3 | Expressions: `set`/`if`/`elseif`, arithmetic, comparisons, function calls inside expressions. | |
 | S4 | References: `ref.Func`, `Quest.var`, SCRO ordering; SCHR and SLSD exact. | |
@@ -74,6 +74,20 @@ For every script (SCPT records, plus the result scripts inside QUST stages, INFO
   - `--show EDID|FormID [--source]` prints one listing.
   - `--fail N` prints the first N failing listings.
 - **Where the format comes from:** the statement and parameter shapes are xOBSE's `GameAPI.cpp` bytecode reader (HIGH confidence). The expression token format is a HYPOTHESIS that the survey tests.
+
+## 3c. What the corpus taught us (S1 result, 2026-10-06)
+
+| Question | Answer from the corpus |
+|---|---|
+| Expression order | **Postfix (RPN)**: `IsActionRef player 1 ==`. The compiler must turn infix source into postfix tokens, separated by spaces. Numbers and operators are stored as ASCII text; `~` is unary minus. |
+| Jump fields | If/ElseIf/Else: the number of **statements between** this one and the next branch of the same level. Begin: bytes from after the Begin statement **through** the End statement. |
+| Reference as a value | `Z` + u16 reference index (`== SEYngvarRef`). |
+| Message / MessageBox / EssentialDeathReload | Custom layout: text, format-variable count + variables, then buttons (MessageBox) or display seconds + 0 (Message). |
+| Block types | 31 in the exe table; the codes match the `begin` names in source for every script (26 types used). |
+| SCHR variable count | A high-water mark: 432 scripts have gaps, 171 a stale higher count. For new scripts the count = the highest index. For byte-identical vanilla recompiles it can't be derived from the source, so `script-check` takes it from the original record. |
+| Sloppy nesting | 48 stray `endif`s, 8 `else`s and 6 `elseif`s without an `if`: the CS compiles them anyway, and so must forge, for the corpus check. |
+| Never used in vanilla | Parameter types FormType (0x21), VariableName (0x16), Global (0x13), Furniture (0x14) and Climate (0x27). Forge refuses to compile them until something confirms their encoding (a CS cross-check). |
+| Cross-check | Every command the decoder finds appears by name in that script's source text. All quest/reference variables resolve to names. |
 
 ## 4. The CS bridge after this
 

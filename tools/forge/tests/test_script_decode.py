@@ -30,6 +30,9 @@ COMMANDS = [
     {"name": "FxGetLevel", "opcode": 0x1003, "table": "script", "params": []},
     {"name": "FxModAV", "opcode": 0x1004, "table": "script",
      "params": [{"name": "av", "type_id": 5, "optional": False}, {"name": "amount", "type_id": 2, "optional": False}]},
+    {"name": "Message", "opcode": 0x1005, "table": "script", "params": [{"name": "text", "type_id": 0, "optional": False}]},
+    {"name": "MessageBox", "opcode": 0x1006, "table": "script",
+     "params": [{"name": "text", "type_id": 0, "optional": False}]},
     {"name": "FxGameMode", "opcode": 0, "table": "block", "params": []},
     {"name": "FxOnActivate", "opcode": 2, "table": "block",
      "params": [{"name": "ref", "type_id": 4, "optional": True}]},
@@ -58,16 +61,16 @@ def build_script() -> tuple[bytes, list[dict], list[dict]]:
     variables = [{"index": 1, "name": "doOnce"}, {"index": 2, "name": "target"}]
     refs = [{"kind": "SCRO", "edid": "Player"}, {"kind": "SCRO", "edid": "Gold"}, {"kind": "SCRV", "var": 2}]
     stmts = [
-        ("if", expr(b" s\x01\x00 == 0")),
+        ("if", expr(b" s\x01\x00 0 ==")),                    # expressions are postfix
         ("set", local("s", 1) + expr(b" 1")),
         ("raw", struct.pack("<HH", 0x1C, 1) + call(0x1001, b"r\x02\x00", b"n" + struct.pack("<i", 5))),
-        ("elseif", expr(b" s\x01\x00 > X\x03\x10\x00\x00")),
+        ("elseif", expr(b" s\x01\x00 X\x03\x10\x00\x00 >")),
         ("raw", call(0x1002, struct.pack("<H", 2) + b"hi", local("s", 1))),
         ("else", b""),
         ("raw", st(0x1E)),
         ("raw", st(0x19)),
     ]
-    # jumps: statements to the next branch at the same level (one candidate the survey measures)
+    # jumps: statements between this one and the next branch of the same level (corpus-confirmed)
     encoded = []
     for kind, payload in stmts:
         if kind == "if":
@@ -80,10 +83,11 @@ def build_script() -> tuple[bytes, list[dict], list[dict]]:
             encoded.append(lambda j, p=payload: st(0x15, p))
         else:
             encoded.append(lambda j, p=payload: p)
-    jumps = {0: 3, 3: 2, 5: 2}
+    jumps = {0: 2, 3: 1, 5: 1}
     inner = b"".join(f(jumps.get(i, 0)) for i, f in enumerate(encoded))
     end = st(0x11)
-    begin_body = struct.pack("<HI", 2, len(inner)) + struct.pack("<H", 1) + b"r\x01\x00"
+    # Begin's length runs from after the Begin statement through the End statement
+    begin_body = struct.pack("<HI", 2, len(inner) + 4) + struct.pack("<H", 1) + b"r\x01\x00"
     data = st(0x1D) + st(0x10, begin_body) + inner + end
     return data, variables, refs
 
@@ -99,16 +103,16 @@ class DecompilerTest(unittest.TestCase):
         texts = [s.text for s in dec.stmts]
         self.assertEqual(texts[0], "ScriptName")
         self.assertEqual(texts[1], "Begin FxOnActivate Player")
-        self.assertEqual(texts[2], "if doOnce == 0")
+        self.assertEqual(texts[2], "if doOnce 0 ==")
         self.assertEqual(texts[3], "set doOnce to 1")
         self.assertEqual(texts[4], "Player.FxGive Gold 5")
-        self.assertEqual(texts[5], "elseif doOnce > FxGetLevel")
+        self.assertEqual(texts[5], "elseif doOnce FxGetLevel >")
         self.assertEqual(texts[6], 'FxSay "hi" doOnce')
         self.assertEqual(texts[7:], ["else", "Return", "EndIf", "End"])
-        self.assertEqual(dec.jumps["If:stmts"], 1)
-        self.assertEqual(dec.jumps["ElseIf:stmts"], 1)
-        self.assertEqual(dec.jumps["Else:stmts"], 1)
-        self.assertEqual(dec.jumps["Begin:bytes_to_end"], 1)
+        self.assertEqual(dec.jumps["If:stmts_between"], 1)
+        self.assertEqual(dec.jumps["ElseIf:stmts_between"], 1)
+        self.assertEqual(dec.jumps["Else:stmts_between"], 1)
+        self.assertEqual(dec.jumps["Begin:bytes_through_end"], 1)
         listing = bc.listing(dec)
         self.assertIn("    set doOnce to 1", listing)
 
@@ -133,6 +137,39 @@ class DecompilerTest(unittest.TestCase):
         dec = bc.Decompiler(self.table).decode(data)
         self.assertTrue(dec.ok, dec.issues)
         self.assertEqual(dec.stmts[0].text, "FxModAV av#8 2.5")
+
+    def test_expression_tokens_ref_value_negation_and_ref_calls(self):
+        refs = [{"kind": "SCRO", "edid": "FxQuest", "owner": "Fx.esp", "objid": "000801"},
+                {"kind": "SCRO", "edid": "FxRef"}]
+        names = lambda ref: {3: "stage"} if ref.get("edid") == "FxQuest" else None   # noqa: E731
+        data = (st(0x15, local("f", 1) + expr(b" r\x01\x00s\x03\x00 Z\x02\x00 == 1 ~ +")) +
+                st(0x15, local("s", 1) + expr(b" r\x02\x00X\x03\x10\x00\x00 2 *")))
+        dec = bc.Decompiler(self.table, [{"index": 1, "name": "x"}], refs, names).decode(data)
+        self.assertTrue(dec.ok, dec.issues)
+        self.assertEqual([s.text for s in dec.stmts],
+                         ["set x to FxQuest.stage FxRef == 1 ~ +", "set x to FxRef.FxGetLevel 2 *"])
+
+    def test_formatted_text_commands(self):
+        text = lambda t: struct.pack("<H", len(t)) + t   # noqa: E731
+        msg = st(0x1005, b"\x01\x00" + text(b"%.0f left") + b"\x01\x00" + b"G\x01\x00" + b"\x05\x00\x00\x00")
+        box = st(0x1006, b"\x01\x00" + text(b"Go?") + b"\x00\x00" + b"\x02\x00" +
+                 b"\x01\x00" + text(b"Yes") + b"\x01\x00" + text(b"No"))
+        dec = bc.Decompiler(self.table, [], [{"kind": "SCRO", "edid": "FxCount"}]).decode(msg + box)
+        self.assertTrue(dec.ok, dec.issues)
+        self.assertEqual([s.text for s in dec.stmts],
+                         ['Message "%.0f left", FxCount, 5', 'MessageBox "Go?", "Yes", "No"'])
+
+    def test_player_reference_has_a_name(self):
+        refs = [{"kind": "SCRO", "edid": "", "owner": "Oblivion.esm", "objid": "000014", "formid": "00000014"}]
+        dec = bc.Decompiler(self.table, [], refs).decode(struct.pack("<HH", 0x1C, 1) + call(0x1003))
+        self.assertEqual(dec.stmts[0].text, "player.FxGetLevel")
+
+    def test_header_variable_count_is_a_high_water_mark(self):
+        row = {"schr": {"size": 0, "refs": 0, "vars": 5}, "scda": "", "refs": [],
+               "vars": [{"index": 1}, {"index": 3}]}
+        self.assertEqual(bc.check_header(row, None), ["vars > max index (stale)"])
+        row["schr"]["vars"] = 3
+        self.assertEqual(bc.check_header(row, None), ["vars == max index (gaps)"])
 
     def test_source_blocks_ignore_comments(self):
         self.assertEqual(bc.source_blocks("scn X\r\n;begin Fake\r\nBegin GameMode\r\nend\r\n  begin onActivate player"),

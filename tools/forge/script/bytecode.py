@@ -1,27 +1,37 @@
 """SCDA decompiler: compiled Oblivion script bytecode -> a readable statement listing.
 
-Step S1 of docs/forge-script-compiler-plan.md. It exists to prove we understand the format before
-forge generates it, and to make every compiler mismatch readable.
+Step S1 of docs/forge-script-compiler-plan.md. Survey of the vanilla corpus (Oblivion.esm + 9 DLC,
+10,720 scripts with bytecode, 2026-10-06): **100% decode with no leftover bytes**, every jump field
+matches one meaning, and every decoded command name appears in its script's source text.
 
-Format, as far as it is known (confidence in brackets; the corpus survey confirms or refutes each):
-  statement      u16 opcode, u16 length, <length bytes>                                 [HIGH]
-  0x1D ScriptName, 0x11 End, 0x19 EndIf, 0x1E Return: length 0                         [HIGH]
-  0x10 Begin     u16 block type, u32 block length, [block parameters]                    [HIGH shape]
-  0x15 Set       variable, u16 expression length, expression                             [HIGH shape]
-  0x16 If / 0x18 ElseIf   u16 jump, u16 expression length, expression                    [HIGH shape]
-  0x17 Else      u16 jump                                                                 [HIGH]
-  0x1C           u16 reference index, then a command statement called on that reference  [HIGH]
-  command        u16 opcode (>= 0x100), u16 length, [u16 parameter count, parameters]     [HIGH]
+Format (CONFIRMED by that survey unless marked otherwise):
+  statement      u16 opcode, u16 length, <length bytes>
+  0x1D ScriptName, 0x11 End, 0x19 EndIf, 0x1E Return: length 0. Result scripts (QUST/INFO) have
+                 no ScriptName and no Begin/End.
+  0x10 Begin     u16 block type, u32 bytes from after this statement through the matching End,
+                 [block parameters]. Block types = the exe's block CommandInfo table, opcode = code.
+  0x15 Set       variable, u16 expression length, expression
+  0x16 If / 0x18 ElseIf   u16 jump, u16 expression length, expression
+  0x17 Else      u16 jump
+                 jump = number of statements between this one and the next Else/ElseIf/EndIf of
+                 the same level
+  0x1C           u16 reference index, then a command statement called on that reference
+  command        u16 opcode (>= 0x100), u16 length, [u16 parameter count, parameters]
   parameters     by ParamType: string = u16 length + text; number = 'n' i32 | 'z' f64 |
                  variable; form = 'r' + u16 reference index; actor value / animation group /
-                 sex / crime type = u16 code; axis = one char                             [xOBSE GameAPI.cpp]
+                 sex / crime type = u16 code; axis = one char. FormType (0x21) and VariableName
+                 (0x16) never occur in vanilla: their layout here is a HYPOTHESIS.
+  formatted text Message / MessageBox / EssentialDeathReload: u16 1, u16 length + text,
+                 u16 variable count + variables, then Message: u16 seconds, u16 0;
+                 the others: u16 button count + buttons (u16 1, u16 length + text)
   variables      's'/'l'/'f' + u16 local index; 'r' + u16 ref index + local of that script;
-                 'G' + u16 ref index of a global                                          [xOBSE GameAPI.cpp]
-  expressions    infix text: numbers and operators as ASCII, separated by spaces, with the
-                 variable tokens above and 'X' + u16 opcode + u16 length + parameters for
-                 function calls                                                           [HYPOTHESIS]
-  jumps          what If/Else/ElseIf/Begin lengths count is measured, not assumed: every
-                 decode reports which candidate (statements or bytes) each one matches.
+                 'G' + u16 ref index of a global
+  expressions    **postfix** (RPN), tokens separated by spaces: numbers as ASCII text, operators
+                 as text (== != > < >= <= && || + - * /, ~ = unary minus), variables as above,
+                 'Z' + u16 ref index = a reference used as a value, 'X' + u16 opcode + u16 length +
+                 parameters = a function call, 'r' + u16 ref + 'X'... = a call on a reference
+  SCHR           variable count is a high-water mark: >= the highest SLSD index (gaps and stale
+                 counts after deleted variables); ref count = SCRO + SCRV; size = len(SCDA)
 """
 
 from __future__ import annotations
@@ -37,7 +47,9 @@ STATEMENTS = {0x10: "Begin", 0x11: "End", 0x12: "Short", 0x13: "Long", 0x14: "Fl
               0x16: "If", 0x17: "Else", 0x18: "ElseIf", 0x19: "EndIf", 0x1C: "RefCall",
               0x1D: "ScriptName", 0x1E: "Return"}
 EMPTY_STATEMENTS = {0x11, 0x19, 0x1D, 0x1E}
-OPERATORS = ["==", "!=", ">=", "<=", "&&", "||", ">", "<", "+", "-", "*", "/", "(", ")"]
+OPERATORS = ["==", "!=", ">=", "<=", "&&", "||", ">", "<", "+", "-", "*", "/", "(", ")", "~"]   # ~ = unary minus
+FORMATTED = {"message", "messagebox", "essentialdeathreload"}   # format text + variables (custom parse)
+PLAYER_REF = ("oblivion.esm", 0x14)          # the player reference has no EditorID
 LOCAL_TAGS = b"slf"
 
 
@@ -71,6 +83,8 @@ class Decoded:
     stmts: list[Stmt]
     issues: list[Issue]
     jumps: Counter                 # "If:stmts", "Else:bytes_after", "Begin:bytes_to_end", ...
+    commands: list = field(default_factory=list)       # every Command called, in order
+    param_types: Counter = field(default_factory=Counter)   # ParamType id -> times decoded
 
     @property
     def ok(self) -> bool:
@@ -114,8 +128,11 @@ class Reader:
 
 class Decompiler:
     def __init__(self, table: cmds.CommandTable, variables: list[dict] | None = None,
-                 refs: list[dict] | None = None):
+                 refs: list[dict] | None = None, external=None):
+        """`external(ref_entry)` -> {index: name} for the script behind a reference (quest or
+        placed object), so `Quest.s3` reads as `Quest.varName`. Optional."""
         self.t = table
+        self.external = external
         self.vars = {v["index"]: v.get("name") or f"var{v['index']}" for v in variables or [] if v.get("index")}
         self.refs = refs or []
         self.issues: list[Issue] = []
@@ -136,7 +153,15 @@ class Decompiler:
         r = self.refs[idx - 1]
         if r["kind"] == "SCRV":
             return self.vars.get(r["var"], f"var{r['var']}")
+        if not r.get("edid") and (r.get("owner", "").casefold(), int(r.get("objid") or "0", 16)) == PLAYER_REF:
+            return "player"
         return r.get("edid") or f"{r.get('owner', '')}:{r.get('formid', '')}"
+
+    def ext_local(self, ref_idx: int, tag: int, idx: int) -> str:
+        names = None
+        if self.external and 1 <= ref_idx <= len(self.refs):
+            names = self.external(self.refs[ref_idx - 1])
+        return (names or {}).get(idx) or f"{chr(tag)}{idx}"
 
     # ---------------------------------------------------------------- operands
     def variable(self, r: Reader) -> str:
@@ -146,10 +171,11 @@ class Decompiler:
         if tag == ord("G"):
             return self.ref(r.u16("global index"), off)
         if tag == ord("r"):
-            base = self.ref(r.u16("ref index"), off)
+            ri = r.u16("ref index")
+            base = self.ref(ri, off)
             off2, tag2 = r.off, r.u8("external variable tag")
             if tag2 in LOCAL_TAGS:
-                return f"{base}.{chr(tag2)}{r.u16('external local index')}"
+                return f"{base}.{self.ext_local(ri, tag2, r.u16('external local index'))}"
             raise DecodeError(off2, "bad external variable tag", f"{tag2:#04x}")
         raise DecodeError(off, "bad variable tag", f"{tag:#04x}")
 
@@ -167,6 +193,7 @@ class Decompiler:
 
     def param(self, r: Reader, p: cmds.Param) -> str:
         t, off = p.type_id, r.off
+        self.param_types[t] += 1
         if t == cmds.STRING:
             n = r.u16("string length")
             return '"' + r.take(n, "string").decode("latin-1") + '"'
@@ -198,6 +225,8 @@ class Decompiler:
             raw = r.take(r.left(), "params")
             self.issues.append(Issue(r.off - len(raw), "unknown opcode", f"{opcode:#06x}"))
             return "<" + raw.hex() + ">"
+        if cmd.name.casefold() in FORMATTED:
+            return self.formatted(r, cmd)
         off, n = r.off, r.u16("param count")
         if n > len(cmd.params):
             raise DecodeError(off, "too many params", f"{cmd.name}: {n} > {len(cmd.params)}")
@@ -206,8 +235,36 @@ class Decompiler:
             raise DecodeError(r.off, "leftover param bytes", f"{cmd.name}: {r.left()}")
         return " ".join(out)
 
+    def formatted(self, r: Reader, cmd: cmds.Command) -> str:
+        """Commands whose text takes format variables (corpus-confirmed):
+        u16 1, u16 length + text, u16 variable count + variables, then
+          Message:                 u16 display seconds, u16 0
+          MessageBox and others:   u16 button count + buttons (u16 1, u16 length + text)"""
+        off, n = r.off, r.u16("param count")
+        if n != 1:
+            raise DecodeError(off, "formatted text param count", f"{cmd.name}: {n}")
+        out = ['"' + r.take(r.u16("text length"), "text").decode("latin-1") + '"']
+        out += [self.variable(r) for _ in range(r.u16("format variable count"))]
+        if cmd.name.casefold() == "message":
+            secs, toff, tail = r.u16("display seconds"), r.off, r.u16("message tail")
+            if secs:
+                out.append(str(secs))
+            if tail:
+                raise DecodeError(toff, "message tail", str(tail))
+        else:
+            for _ in range(r.u16("button count")):
+                boff, one = r.off, r.u16("button tag")
+                if one != 1:
+                    raise DecodeError(boff, "button tag", f"{one}")
+                out.append('"' + r.take(r.u16("button length"), "button").decode("latin-1") + '"')
+        if r.left():
+            raise DecodeError(r.off, "leftover param bytes", f"{cmd.name}: {r.left()}")
+        return ", ".join(out)
+
     def call(self, r: Reader, opcode: int, length: int) -> str:
         cmd = self.t.by_op.get(opcode)
+        if cmd:
+            self.commands.append(cmd)
         body = r.sub(length, "command params")
         args = self.params(body, cmd, opcode)
         name = cmd.name if cmd else f"op{opcode:04X}"
@@ -235,7 +292,8 @@ class Decompiler:
                 if c == ord("r"):
                     # a reference followed by a function call or a variable of its script
                     r.u8()
-                    base = self.ref(r.u16("ref index"), off)
+                    ri = r.u16("ref index")
+                    base = self.ref(ri, off)
                     nxt = r.peek()
                     if nxt == ord("X"):
                         r.u8()
@@ -245,12 +303,17 @@ class Decompiler:
                         continue
                     if nxt is not None and nxt in LOCAL_TAGS:
                         tag = r.u8()
-                        v = f"{base}.{chr(tag)}{r.u16('external local index')}"
+                        v = f"{base}.{self.ext_local(ri, tag, r.u16('external local index'))}"
                         toks.append(("extvar", v, off)); out.append(v)
                         continue
                     raise DecodeError(r.off, "bad token after reference", f"{nxt if nxt is None else hex(nxt)}")
                 v = self.variable(r)
                 toks.append(("var", v, off)); out.append(v)
+                continue
+            if c == ord("Z"):                     # a reference used as a value
+                r.u8()
+                v = self.ref(r.u16("ref index"), off)
+                toks.append(("refval", v, off)); out.append(v)
                 continue
             if c == ord("X"):
                 r.u8()
@@ -310,12 +373,14 @@ class Decompiler:
         if op in STATEMENTS:
             raise DecodeError(start, "unexpected statement", name)
         cmd = self.t.by_op.get(op)
+        if cmd:
+            self.commands.append(cmd)
         args = self.params(body, cmd, op)
         return Stmt(start, op, cmd.name if cmd else f"op{op:04X}", 4 + length,
                     f"{cmd.name if cmd else f'op{op:04X}'} {args}".rstrip())
 
     def decode(self, data: bytes) -> Decoded:
-        self.issues = []
+        self.issues, self.commands, self.param_types = [], [], Counter()
         r, stmts = Reader(data), []
         while r.left():
             try:
@@ -323,7 +388,8 @@ class Decompiler:
             except DecodeError as e:
                 self.issues.append(Issue(e.off, e.kind, e.detail))
                 break
-        return Decoded(stmts, self.issues, measure_jumps(stmts) if not self.issues else Counter())
+        return Decoded(stmts, self.issues, measure_jumps(stmts) if not self.issues else Counter(),
+                       self.commands, self.param_types)
 
 
 # -------------------------------------------------------------------- jump semantics
@@ -387,6 +453,18 @@ def listing(dec: Decoded) -> str:
     return "\n".join(out)
 
 
+WORD_RE = re.compile(r"[A-Za-z_]\w*")
+
+
+def source_agreement(sctx: str, dec: Decoded) -> list[str]:
+    """Commands the bytecode calls whose name and alias never appear in the source text: a sign
+    the decoder read an opcode at the wrong place. Comments are ignored."""
+    text = "\n".join(line.split(";", 1)[0] for line in sctx.splitlines())
+    words = {w.casefold() for w in WORD_RE.findall(text)}
+    return sorted({c.name for c in dec.commands
+                   if c.name.casefold() not in words and (not c.alias or c.alias.casefold() not in words)})
+
+
 def check_header(row: dict, dec: Decoded) -> list[str]:
     """SCHR against what the subrecords hold. Returns mismatch tags (survey statistics)."""
     h, bad = row.get("schr") or {}, []
@@ -397,6 +475,9 @@ def check_header(row: dict, dec: Decoded) -> list[str]:
     if h["refs"] != len(row["refs"]):
         bad.append("refs != SCRO+SCRV")
     idx = [v["index"] for v in row["vars"] if v.get("index")]
+    top = max(idx) if idx else 0
     if h["vars"] != len(idx):
-        bad.append("vars != count" + (" (== max index)" if idx and h["vars"] == max(idx) else ""))
+        # the field is a high-water mark: deleted variables leave gaps and stale counts behind
+        bad.append("vars == max index (gaps)" if h["vars"] == top else
+                   "vars > max index (stale)" if h["vars"] > top else "vars < max index")
     return bad

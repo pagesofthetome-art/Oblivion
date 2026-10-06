@@ -13,6 +13,8 @@ research-extracts/
 tools-unpacked/
 Tool Downloads/
 _audit/
+# the PC clone's junction to the GOG game folder
+/Oblivion
 .cs_bridge_token
 
 # TES4Forge build output (contains records copied from third-party plugins)
@@ -25,4 +27,5 @@ vanilla_index.jsonl
 vanilla_commands.jsonl
 forge-script-corpus.jsonl*
 script_log.txt
+decode_log.txt
 kb_log.txt

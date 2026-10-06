@@ -19,35 +19,81 @@ from pathlib import Path
 from forge.script import bytecode as bc, commands as cmds
 
 
-def iter_rows(path: Path, sig: str | None = None):
-    name = str(path).casefold()
-    if name.endswith(".jsonl") or name.endswith(".jsonl.gz"):
-        opener = gzip.open if name.endswith(".gz") else open
+class ExternalNames:
+    """Variable names of the script behind a reference: a quest's script, an object's script, or
+    a placed reference's base object's script. Turns `SE43.s3` into `SE43.DogAttackPC`."""
+
+    def __init__(self):
+        self.forms: dict[str, dict] = {}
+        self.vars: dict[str, dict[int, str]] = {}
+
+    @staticmethod
+    def key(owner: str, objid: str) -> str:
+        return f"{owner.casefold()}:{objid.upper()}"
+
+    def add_form(self, f: dict) -> None:
+        self.forms[self.key(f["owner"], f["objid"])] = f
+
+    def add_script(self, row: dict) -> None:
+        if row["sig"] == "SCPT":
+            self.vars[self.key(row["owner"], row["objid"])] = {
+                v["index"]: v["name"] for v in row["vars"] if v.get("index")}
+
+    def _script_of(self, key: str | None, depth: int = 0) -> dict | None:
+        f = self.forms.get(key or "")
+        if not f or depth > 1:
+            return None
+        if f.get("scri"):
+            return self.vars.get(self.key(*f["scri"].split(":", 1)))
+        if f.get("base"):
+            return self._script_of(self.key(*f["base"].split(":", 1)), depth + 1)
+        return None
+
+    def __call__(self, ref: dict) -> dict | None:
+        if ref.get("kind") != "SCRO":
+            return None
+        return self._script_of(self.key(ref.get("owner", ""), ref.get("objid", "")))
+
+
+def load_rows(path: Path, sig: str | None = None) -> tuple[list[dict], ExternalNames]:
+    """All script rows of a corpus bundle or a plugin, plus the external-variable resolver."""
+    names, rows = ExternalNames(), []
+    lower = str(path).casefold()
+    if lower.endswith(".jsonl") or lower.endswith(".jsonl.gz"):
+        opener = gzip.open if lower.endswith(".gz") else open
         with opener(path, "rt", encoding="utf-8") as fh:
             for line in fh:
-                if '"row": "script"' not in line[:40]:
-                    continue
-                row = json.loads(line)
-                if not sig or row["sig"] == sig:
-                    yield row
-        return
-    from forge.script.extract import iter_scripts, resolve_refs
-    forms: dict = {}
-    rows = [row for row, _ in iter_scripts(path, forms) if not sig or row["sig"] == sig]
+                head = line[:30]
+                if '"row": "form"' in head:
+                    names.add_form(json.loads(line))
+                elif '"row": "script"' in head:
+                    rows.append(json.loads(line))
+    else:
+        from forge.script.extract import iter_scripts, resolve_refs
+        forms: dict = {}
+        rows = [row for row, _ in iter_scripts(path, forms)]
+        for row in rows:
+            resolve_refs(row, forms)
+        for f in forms.values():
+            names.add_form(f)
     for row in rows:
-        resolve_refs(row, forms)
-        yield row
+        names.add_script(row)
+    return [r for r in rows if not sig or r["sig"] == sig], names
+
+
+def iter_rows(path: Path, sig: str | None = None):
+    return load_rows(path, sig)[0]
 
 
 def label(row: dict) -> str:
     return f"{row['plugin']}:{row['formid']} {row['sig']} {row['edid'] or '-'}" + (f" [{row['ctx']}]" if row["ctx"] else "")
 
 
-def decode_row(row: dict, table: cmds.CommandTable) -> bc.Decoded:
-    return bc.Decompiler(table, row["vars"], row["refs"]).decode(bytes.fromhex(row["scda"]))
+def decode_row(row: dict, table: cmds.CommandTable, names: ExternalNames | None = None) -> bc.Decoded:
+    return bc.Decompiler(table, row["vars"], row["refs"], names).decode(bytes.fromhex(row["scda"]))
 
 
-def survey(rows, table: cmds.CommandTable, fail_listings: int = 0) -> dict:
+def survey(rows, table: cmds.CommandTable, fail_listings: int = 0, names: ExternalNames | None = None) -> dict:
     total, ok, empty = Counter(), Counter(), 0
     fails: dict[str, list] = defaultdict(list)
     fail_count: Counter = Counter()
@@ -57,13 +103,16 @@ def survey(rows, table: cmds.CommandTable, fail_listings: int = 0) -> dict:
     block_mismatch = 0
     first_stmt: Counter = Counter()
     unknown_ops: Counter = Counter()
+    ptypes: Counter = Counter()
+    disagree: Counter = Counter()
+    disagree_ex: list = []
     listings = []
     for row in rows:
         total[row["sig"]] += 1
         if not row["scda"]:
             empty += 1
             continue
-        dec = decode_row(row, table)
+        dec = decode_row(row, table, names)
         jumps.update(dec.jumps)
         header.update(bc.check_header(row, dec))
         if dec.stmts:
@@ -73,10 +122,16 @@ def survey(rows, table: cmds.CommandTable, fail_listings: int = 0) -> dict:
                 unknown_ops[i.detail] += 1
         if dec.ok:
             ok[row["sig"]] += 1
+            ptypes.update(dec.param_types)
+            missing = bc.source_agreement(row["sctx"], dec)
+            for m in missing:
+                disagree[m] += 1
+            if missing and len(disagree_ex) < 5:
+                disagree_ex.append(f"{label(row)}: {', '.join(missing)}")
             begins = [s.block for s in dec.stmts if s.op == 0x10]
-            names = bc.source_blocks(row["sctx"])
-            if len(begins) == len(names):
-                for code, n in zip(begins, names):
+            src_blocks = bc.source_blocks(row["sctx"])
+            if len(begins) == len(src_blocks):
+                for code, n in zip(begins, src_blocks):
                     blocks[code][n.casefold()] += 1
             else:
                 block_mismatch += 1
@@ -90,9 +145,9 @@ def survey(rows, table: cmds.CommandTable, fail_listings: int = 0) -> dict:
                 listings.append(f"== {label(row)}\n{bc.listing(dec)}")
     n_total, n_ok = sum(total.values()) - empty, sum(ok.values())
     block_names = {}
-    for code, names in sorted(blocks.items()):
+    for code, seen in sorted(blocks.items()):
         known = table.blocks.get(code)
-        block_names[code] = {"table": known.name if known else None, "source": dict(names.most_common(3))}
+        block_names[code] = {"table": known.name if known else None, "source": dict(seen.most_common(3))}
     return {
         "scripts": dict(total), "with_bytecode": n_total, "empty": empty,
         "decoded_ok": n_ok, "decoded_ok_by_sig": dict(ok),
@@ -101,6 +156,8 @@ def survey(rows, table: cmds.CommandTable, fail_listings: int = 0) -> dict:
         "unknown_opcodes": dict(unknown_ops.most_common(20)),
         "jumps": dict(sorted(jumps.items())), "schr": dict(header), "first_statement": dict(first_stmt),
         "block_types": block_names, "block_count_mismatch": block_mismatch,
+        "param_types": {str(k): v for k, v in sorted(ptypes.items())},
+        "source_disagreement": {"commands": dict(disagree.most_common(20)), "examples": disagree_ex},
         "commands_loaded": len(table), "block_types_loaded": len(table.blocks),
         "listings": listings,
     }
@@ -122,6 +179,12 @@ def format_survey(s: dict) -> str:
         lines.append("unknown opcodes: " + ", ".join(f"{k} x{v}" for k, v in s["unknown_opcodes"].items()))
     lines.append("jump fields (which candidate meaning matched):")
     lines += [f"  {v:>6}  {k}" for k, v in s["jumps"].items()]
+    sd = s["source_disagreement"]
+    lines.append("commands decoded but absent from the source text: " +
+                 (", ".join(f"{k} x{v}" for k, v in sd["commands"].items()) or "none"))
+    lines += [f"          e.g. {e}" for e in sd["examples"]]
+    lines.append("param types decoded (type id: count): " +
+                 ", ".join(f"{k}: {v}" for k, v in s["param_types"].items()))
     lines.append("SCHR checks: " + (", ".join(f"{k} x{v}" for k, v in s["schr"].items()) or "all consistent"))
     lines.append("first statement: " + ", ".join(f"{k} x{v}" for k, v in s["first_statement"].items()))
     lines.append(f"block types (code: exe table name | names in source text), "
@@ -165,13 +228,13 @@ def main(argv: list[str]) -> int:
         src if str(src).casefold().endswith(".jsonl.gz") else None)
     if not len(table):
         print("note: no command table loaded (vanilla_commands.jsonl / corpus); opcodes show raw", file=sys.stderr)
-    rows = iter_rows(src, sig)
+    rows, names = load_rows(src, sig)
     if shows:
         found = 0
         for row in rows:
             if row["edid"].casefold() in shows or row["formid"].casefold() in shows:
                 found += 1
-                dec = decode_row(row, table)
+                dec = decode_row(row, table, names)
                 if as_json:
                     print(json.dumps({"script": label(row), "ok": dec.ok,
                                       "statements": [vars(st) for st in dec.stmts],
@@ -182,6 +245,6 @@ def main(argv: list[str]) -> int:
                     print("-- source\n" + row["sctx"].replace("\r\n", "\n") + "\n-- decoded")
                 print(bc.listing(dec))
         return 0 if found else 2
-    s = survey(rows, table, fail_n)
+    s = survey(rows, table, fail_n, names)
     print(json.dumps(s, indent=1) if as_json else format_survey(s))
     return 0 if s["with_bytecode"] and s["decoded_ok"] == s["with_bytecode"] else 2
