@@ -87,8 +87,7 @@ class VanillaTests(unittest.TestCase):
         a = vanilla.resolve("arena", self.idx)
         self.assertEqual((a.boot, a.cell_edid), ("coc ICArena", "ICArena"),
                          "pinned to ICArena, not the busier 'Cann, Arena' ruin (run 3)")
-        self.assertEqual(a.setpos, [120.0, 340.0, 64.0, 1.5], "arrives through the Bloodworks gate")
-        self.assertIn("arriving from ICArenaBloodworks", a.detail)
+        self.assertIsNone(a.setpos, "coc's own spot on the floor, not behind the gate (run 5)")
         s = vanilla.resolve("street", self.idx)
         self.assertEqual((s.boot, s.world_edid), ("cow ICMarketDistrict 10 6", "ICMarketDistrict"))
         self.assertEqual(s.setpos[:2], [41000.0, 25100.0], "outside a shop door")

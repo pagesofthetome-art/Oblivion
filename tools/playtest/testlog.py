@@ -34,6 +34,8 @@ def parse(lines: list[str]) -> dict:
            "marked": False}
     cur = None                                         # None = before any marker, "cell" = after CELL
     for l in lines:
+        if re.search(r"\bprintc\b", l, re.I):
+            continue                                   # the echoed command, not its output
         m = MARK_RE.search(l)
         if m:
             parts = m.group("rest").split("|")

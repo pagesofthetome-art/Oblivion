@@ -180,34 +180,40 @@ class FormTable:
 
 
 # ---------------------------------------------------------------- compile
-def _line(st: dict, forms: FormTable) -> str:
+def _on(ref: str, command: str) -> list[str]:
+    """Run a command on a reference. Oblivion's console does not take `<FormID>.Command` (run 5:
+    `Script command "0C00080A.GetAV" not found`), so other references are picked with prid first."""
+    if ref == "player":
+        return [f"player.{command}"]
+    return [f"prid {ref}", command]
+
+
+def _line(st: dict, forms: FormTable) -> list[str]:
     op = st["do"]
     ref = forms.form(st.get("ref", "player"))
     if op == "additem":
-        return f"{ref}.additem {forms.form(st['form'])} {st.get('count', 1)}"
+        return _on(ref, f"additem {forms.form(st['form'])} {st.get('count', 1)}")
     if op == "removeitem":
-        return f"{ref}.removeitem {forms.form(st['form'])} {st.get('count', 1)}"
+        return _on(ref, f"removeitem {forms.form(st['form'])} {st.get('count', 1)}")
     if op == "equip":
-        return f"{ref}.equipitem {forms.form(st['form'])}"
+        return _on(ref, f"equipitem {forms.form(st['form'])}")
     if op == "addspell":
-        return f"{ref}.addspell {forms.form(st['form'])}"
+        return _on(ref, f"addspell {forms.form(st['form'])}")
     if op == "cast":
-        caster = forms.form(st.get("caster", "player"))
-        return f"{caster}.cast {forms.form(st['spell'])} {forms.form(st['target'])}"
+        return _on(forms.form(st.get("caster", "player")), f"cast {forms.form(st['spell'])} {forms.form(st['target'])}")
     if op == "spawn":
-        at = forms.form(st.get("at", "player"))
-        return f"{at}.placeatme {forms.form(st['form'])} {st.get('count', 1)}"
+        return _on(forms.form(st.get("at", "player")), f"placeatme {forms.form(st['form'])} {st.get('count', 1)}")
     if op in ("setav", "modav"):
-        return f"{ref}.{op} {st['av']} {st['value']}"
+        return _on(ref, f"{op} {st['av']} {st['value']}")
     if op == "moveto":
-        return f"player.moveto {forms.form(st['to'])}"
+        return [f"player.moveto {forms.form(st['to'])}"]
     if op == "weather":
-        return f"fw {forms.form(st['form'])}"
+        return [f"fw {forms.form(st['form'])}"]
     if op == "console":
-        return st["command"]
+        return [st["command"]]
     if op == "check":
         args = " ".join(_arg(a, forms) for a in st["args"])
-        return f"{ref}.{st['fn']} {args}".rstrip()
+        return _on(ref, f"{st['fn']} {args}".rstrip())
     raise ManifestError(f"cannot compile {op}")
 
 
@@ -247,7 +253,7 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         head += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}",
                  f"player.setangle z {math.degrees(heading) % 360:.1f}"]
     for ref, dx, dy, dz in bring:
-        head.append(f"{forms.form(ref)}.moveto player {dx} {dy} {dz}")
+        head += _on(forms.form(ref), f"moveto player {dx} {dy} {dz}")
     head.append(f'printc "{marker("CELL", location.get("cell_edid") or location.get("world_edid"))}"')
     if location.get("cell_edid"):
         head.append(f"player.GetInCell {location['cell_edid']}")
@@ -258,8 +264,9 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         if st["do"] == "wait":
             chunks.append({"wait_before": st["seconds"], "lines": []})
             continue
-        st["console"] = _line(st, forms)
-        chunks[-1]["lines"] += [f'printc "{marker("STEP", st["n"], st["do"])}"', st["console"]]
+        lines = _line(st, forms)
+        st["console"] = " | ".join(lines)
+        chunks[-1]["lines"] += [f'printc "{marker("STEP", st["n"], st["do"])}"', *lines]
     chunks[-1]["lines"] += [f'printc "{marker("END", run_id)}"', "scof 0",
                             'message "Forge: checks done. Play on, quit the game when you are ready."']
     for i, c in enumerate(chunks, 1):

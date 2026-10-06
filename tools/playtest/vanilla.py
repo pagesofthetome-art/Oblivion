@@ -11,13 +11,13 @@ keyed by the file's size and modification time.
 
 Default picks (each can be overridden: `--cell <InteriorEditorID>`, `--cell marker:<Map marker name>`,
 `--cell world:<Worldspace>` or `--cell cow:<World>:<x>:<y>`):
-  arena   the Imperial City Arena's combat floor: interior ICArena, arriving through the
-          Bloodworks gate (fallbacks: name 'Imperial City Arena', then an ICArena* EditorID)
+  arena   the Imperial City Arena's combat floor: `coc ICArena` (fallbacks: name 'Imperial City
+          Arena', then an ICArena* EditorID)
   street  the Market District worldspace: the busiest cell, standing where a shop door lets you out
   open    the Weye map marker (open shore road west of the Imperial City)
 
-The player stands on a door arrival spot (a load door's XTEL destination: always walkable floor)
-when the location has one.
+Exterior locations stand the player on a door arrival spot (a load door's XTEL destination: always
+walkable floor). Interiors use where `coc` puts you.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ DEFAULTS = {
     "arena": {"label": "Imperial City Arena, combat floor",
               # the fighting pit (verified on Yuri's Oblivion.esm, run 3): EditorID ICArena, name
               # 'Imperial City Arena'; the player arrives through the Bloodworks gate, as for a match
-              "edid": "ICArena", "arrive_from": r"bloodworks",
+              "edid": "ICArena",
               "name": "Imperial City Arena",
               "exclude": r"spectator|champion|holding|bloodwork|quarter|storage|hall|tunnel|basement|"
                          r"store|shop|room|gate|lobby|bet|test|sewer"},
@@ -178,16 +178,11 @@ def _spots(index: dict, interior: str | None = None, world: str | None = None) -
     return sorted(out, key=lambda sp: (-sp["cell_refs"], sp["door"]))
 
 
-def _interior_location(key: str, label: str, c: dict, index: dict, arrive_from: str | None = None) -> Location:
-    spots = _spots(index, interior=c["edid"])
-    if arrive_from:
-        preferred = [sp for sp in spots if re.search(arrive_from, sp.get("from") or "", re.I)]
-        spots = preferred + [sp for sp in spots if sp not in preferred]
-    sp = spots[0] if spots else None
+def _interior_location(key: str, label: str, c: dict, index: dict) -> Location:
+    """Interiors: `coc` alone. It already drops the player on the floor (run 5: the arena floor);
+    moving on to a door arrival spot put Yuri behind the Arena gate."""
     return Location(key, label, f"coc {c['edid']}", None, c["edid"], None,
-                    f"interior {c['edid']} ('{c['name']}', {c['refs']} refs)"
-                    + (f", arriving from {sp.get('from') or '?'} (door {_cid(sp['door'])})" if sp else ""),
-                    [*sp["pos"], sp["rot"]] if sp else None)
+                    f"interior {c['edid']} ('{c['name']}', {c['refs']} refs)")
 
 
 def _world_location(key: str, label: str, world: str, index: dict) -> Location:
@@ -228,7 +223,7 @@ def resolve(key_or_spec: str | None, index: dict) -> Location:
                 raise VanillaError("no Arena interior found in Oblivion.esm; pass --cell <InteriorEditorID> "
                                    "(forge playtest find arena)")
             best = max(hits, key=lambda c: (c["refs"], c["edid"]))
-        return _interior_location("arena", d["label"], best, index, d["arrive_from"])
+        return _interior_location("arena", d["label"], best, index)
     if low == "street":
         d = DEFAULTS["street"]
         for world in d["worlds"]:

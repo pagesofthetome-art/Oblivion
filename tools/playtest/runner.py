@@ -340,6 +340,29 @@ def _batch_files(chunks: list[dict]) -> list[tuple[str, bytes]]:
     return out
 
 
+def find_run_log(m: profile.Machine, marker: str, since: float) -> Path | None:
+    """The console log of this run, wherever the logger put it: forge_test.log in the game folder
+    (scof / con_SCOF), or any .log/.txt written since the run started under the game folder or
+    My Games\\Oblivion (e.g. an OBSE console-logging plugin) that contains this run's BEGIN marker."""
+    direct = m.game_dir / mf.LOG_NAME
+    if direct.is_file():
+        return direct
+    output = re.compile(r"^(?!.*\bprintc\b).*" + re.escape(marker), re.M | re.I)   # output, not the command
+    for root in (m.game_dir, m.ini.parent):
+        if not root.is_dir():
+            continue
+        for f in root.rglob("*"):
+            try:
+                if (f.suffix.lower() not in (".log", ".txt") or f.name.lower().startswith(mf.BATCH_PREFIX)
+                        or not f.is_file() or f.stat().st_mtime < since):
+                    continue
+                if f.stat().st_size < 50_000_000 and output.search(f.read_text("cp1252", "replace")):
+                    return f
+            except OSError:
+                continue
+    return None
+
+
 def _new_run_dir(m: profile.Machine) -> Path:
     base = m.state_dir / "runs" / time.strftime("%Y%m%d-%H%M%S")
     d, i = base, 1
@@ -359,6 +382,7 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
     for n in preflight(m, p):
         log(f"note: {n}")
     run_dir = _new_run_dir(m)
+    started_wall = time.time() - 5
     result: dict = {"verdict": "NOT-RUN"}
     prof = _Profile(m, p, log, run_dir)
     try:
@@ -388,8 +412,10 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
                                     "`forge playtest make-save` first (once).")
             else:
                 extra.update(_play(m, p, prof.sess, man, loc, opts, t0, run_dir))
-            if game_log.is_file():
-                shutil.copy2(game_log, run_dir / mf.LOG_NAME)
+            found = find_run_log(m, f"FORGE|BEGIN|{man['run_id']}", started_wall) if not opts.dry_run else None
+            if found:
+                shutil.copy2(found, run_dir / mf.LOG_NAME)
+                extra["log_source"] = str(found)
             result = testlog.evaluate(man, run_dir / mf.LOG_NAME if (run_dir / mf.LOG_NAME).is_file() else None, extra)
             if opts.dry_run:
                 result["verdict"] = "DRY-RUN"
@@ -878,10 +904,13 @@ class Driver:
             self._screen_console = False
 
     def run_batch(self, command: str, game_log: Path) -> bool:
-        """Run one batch once (never retried: a second run would repeat its steps)."""
+        """Run one batch once (never retried: a second run would repeat its steps). The console is
+        photographed before it closes: its last lines are the batch's output, the evidence when no
+        log file gets written (run 5: scof wrote nothing)."""
         self.phase = f"batch {command}"
         size = game_log.stat().st_size if game_log.is_file() else 0
         self.console(command)
         ok = _wait(self.p, lambda: game_log.is_file() and game_log.stat().st_size > size, 3.0, 0.2)
+        self.shot("output-" + command.split()[-1])
         self.close_console()
         return bool(ok)

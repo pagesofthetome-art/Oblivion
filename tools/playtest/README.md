@@ -95,10 +95,19 @@ The boot itself:
    you quit. Only if the log confirms you were in the arena does the new save replace
    `Saves\ForgePlaytest\ForgePlaytestBase.ess`. Otherwise the old save is left exactly as it was. Then
    autosaves in that folder (and only there) are removed so that Continue always loads it.
-5. After the load, `bat fpt1` (each batch exists as `fptN.txt` and `fptN`, so `bat` finds it either
-   way) puts you on a **door arrival spot**. It then brings the test actors next to you, checks where
-   you are (`GetInCell` / `GetInWorldspace`), and runs the steps. Logging is turned on with both
-   `con_SCOF` and `scof`. The last batch shows the "quit when ready" message in game.
+5. After the load, `bat fpt1` runs (each batch exists as `fptN.txt` and `fptN`, so `bat` finds it
+   either way):
+   - Outdoors it puts you on a **door arrival spot**. Indoors you stay where `coc` put you: run 5's
+     arrival spot was behind the Arena gate.
+   - It brings the test actors next to you, checks where you are (`GetInCell` / `GetInWorldspace`), and
+     runs the steps.
+   - Other references are always addressed as `prid <FormID>` followed by the command: Oblivion's
+     console rejects `<FormID>.Command` (run 5: `Script command "0C00080A.GetAV" not found`).
+   - Logging is turned on with both `con_SCOF` and `scof`. Run 5 found neither file on the PC, so
+     after the game exits forge also looks for **any** new .log/.txt under the game folder or
+     `My Games\Oblivion` with this run's BEGIN marker (e.g. from an OBSE console-logging plugin).
+   - The console is photographed after every batch (`shots\NN-output-fptN.png`) as evidence.
+   - The last batch shows the "quit when ready" message in game.
 6. Boot time is measured from the command to "loaded, player in control". The target is 30 s, once
    you press Continue at the beep.
 
@@ -116,7 +125,7 @@ These are picked from the test game's own Oblivion.esm, which is only read. The 
 
 | key | where | for |
 |---|---|---|
-| `arena` | the Imperial City Arena's fighting floor: interior `ICArena`, arriving through the Bloodworks gate as for a match | spells and combat |
+| `arena` | the Imperial City Arena's fighting floor: `coc ICArena` | spells and combat |
 | `street` | the Market District worldspace: its busiest cell, outside a shop door | doors, shops, crowds, a merchant |
 | `open` | the *Weye* map marker (shore road west of the city) | weather (`fw`) and projectiles |
 

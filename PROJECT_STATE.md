@@ -2,7 +2,7 @@
 
 Each track updates its own section when it finishes (see the TES4Forge roadmap).
 
-## Track E: playtest (2026-10-06, run 5 prepared)
+## Track E: playtest (2026-10-06, run 6 prepared)
 
 Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge playtest | test | preview`.
 
@@ -49,4 +49,16 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - no typing in the main menu;
   - acceptance stops if make-save fails;
   - 81 tests.
-- **Waiting on:** PC run 5 (`tools/playtest/HANDOFF-local-claude.md`).
+- **PC run 5:** the pipeline worked end to end: make-save made a save, Continue reached ICArena in
+  25 s, the batches ran, and Yuri quit himself. Still wrong:
+  - `<FormID>.Command` is not accepted by the console, so the test actors failed;
+  - scof wrote no file;
+  - the player was set behind the Arena gate.
+- **Run 6:**
+  - `prid` + command for every other reference;
+  - no interior setpos;
+  - the log is searched by its run marker anywhere under the game folder and My Games;
+  - the console is photographed after each batch;
+  - HasSpell is dropped from the example;
+  - 84 tests.
+- **Waiting on:** PC run 6, plus research on which logging this OBSE supports.

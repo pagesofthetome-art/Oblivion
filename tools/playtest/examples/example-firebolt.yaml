@@ -21,7 +21,6 @@ test_plan:
     - Cast it at the dummy yourself with R1 and watch the health bar drop.
   steps:
     - addspell: ForgeExampleFireboltSpell
-    - check: {ref: player, fn: HasSpell, args: [ForgeExampleFireboltSpell], expect: "== 1"}
     - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], save: hp_before}
     - cast: {caster: ForgeArenaCasterRef, spell: ForgeExampleFireboltSpell, target: ForgeArenaDummyRef}
     - wait: 3

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -49,13 +50,16 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(len(m["chunks"]), 2)
         self.assertEqual(m["chunks"][1]["wait_before"], 3.0)
         first, second = m["chunks"][0]["lines"], m["chunks"][1]["lines"]
-        self.assertEqual(first[:7], ["con_SCOF forge_test.log", "scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
-                                     "0300081A.moveto player 0 600 0", "0300081B.moveto player 200 100 0",
+        self.assertEqual(first[:9], ["con_SCOF forge_test.log", "scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
+                                     "prid 0300081A", "moveto player 0 600 0", "prid 0300081B", "moveto player 200 100 0",
                                      'printc "FORGE|CELL|ArenaArena"', "player.GetInCell ArenaArena"])
         self.assertIn("player.addspell 02000800", first)
         self.assertIn("player.HasSpell 02000800", first)
-        self.assertIn("0300081A.GetAV Health", first)
-        self.assertIn("0300081B.cast 02000800 0300081A", first)
+        self.assertIn("GetAV Health", first)
+        i = first.index("cast 02000800 0300081A")
+        self.assertEqual(first[i - 1], "prid 0300081B", "the caster is picked with prid first")
+        self.assertFalse([l for l in first if re.match(r"^[0-9A-F]{8}\.", l)],
+                         "no <FormID>.Command lines: the console rejects them (run 5)")
         self.assertIn("player.additem 0000000F 100", second)
         self.assertEqual(second[-3:-1], ['printc "FORGE|END|abcd1234"', "scof 0"])
         self.assertTrue(second[-1].startswith('message "Forge: checks done'), "tells Yuri to quit when ready")
@@ -66,6 +70,7 @@ class ManifestTests(unittest.TestCase):
                    world_edid="ICMarketDistrict")
         lines = manifest(location=loc)["chunks"][0]["lines"]
         self.assertEqual(lines[3], "player.moveto 0000C002")
+        self.assertNotIn("0000C002.", " ".join(lines))
         self.assertIn("player.GetInWorldspace ICMarketDistrict", lines)
 
     def test_cell_arguments_stay_editor_ids(self):
@@ -116,7 +121,7 @@ class ManifestTests(unittest.TestCase):
         spec = yaml.safe_load((Path(__file__).resolve().parents[1] / "examples" / "example-firebolt.yaml").read_text())
         plan = mf.parse_plan(spec["test_plan"])
         self.assertEqual(plan["cell"], "arena")
-        self.assertEqual(sum(1 for s in plan["steps"] if s["do"] == "check"), 4)
+        self.assertEqual(sum(1 for s in plan["steps"] if s["do"] == "check"), 3)
 
 
 def log_text(m, health_after=475.0, end=True, run_id=None, extra_error=None, in_cell=1.0, markers=True):
@@ -174,6 +179,12 @@ class LogTests(unittest.TestCase):
 
     def test_wrong_cell_fails(self):
         self.assertEqual(self.judge(log_text(manifest(), in_cell=0.0))["verdict"], "FAIL")
+
+    def test_echoed_printc_commands_are_ignored(self):
+        m = manifest()
+        text = "\n".join(f'> printc "{l}"\n{l}' if l.startswith("FORGE|") else l
+                         for l in log_text(m).splitlines())
+        self.assertEqual(self.judge(text)["verdict"], "PASS")
 
     def test_without_xobse_markers_values_match_in_order(self):
         r = self.judge(log_text(manifest(), markers=False))

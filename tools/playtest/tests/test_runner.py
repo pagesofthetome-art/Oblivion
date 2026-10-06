@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -56,14 +57,17 @@ class RunnerTests(MachineCase):
         self.assertEqual(p.killed, [])
         self.assertTrue(p.game.messages and "quit the game when you are ready" in p.game.messages[-1])
         self.assertTrue(any("Quit the game with the pad" in l for l in self.logs))
-        self.assertTrue(any(h.endswith(".moveto player 0 600 0") for h in hist), "dummy brought to the player")
+        i = hist.index("moveto player 0 600 0")
+        self.assertTrue(hist[i - 1].startswith("prid "), "dummy picked with prid, then brought to the player")
+        self.assertFalse([h for h in hist if re.match(r"^[0-9A-F]{8}\.", h)], "no <FormID>.Command lines")
         self.assertFalse([h for h in hist if h.startswith("GAME KEYS")], "typed into the game, not the console")
         run = Path(res["run_dir"])
+        shots = sorted(x.name for x in (run / "shots").iterdir())
         for f in ("forge_test.log", "playtest_manifest.json", "boot-trace.jsonl", "Plugins.test.txt",
                   "Oblivion.test.ini"):
             self.assertTrue((run / f).is_file(), f)
-        shots = sorted(x.name for x in (run / "shots").iterdir())
         self.assertTrue(any("main-menu" in s for s in shots) and any("in-game" in s for s in shots), shots)
+        self.assertTrue(any("output-fpt1" in x for x in shots), "console photographed after each batch")
         trace = (run / "boot-trace.jsonl").read_text()
         self.assertIn("game closed by the player", trace)
         ini = (run / "Oblivion.test.ini").read_bytes().decode("cp1252")
@@ -76,6 +80,19 @@ class RunnerTests(MachineCase):
         plugins = (run / "Plugins.test.txt").read_text().split()
         self.assertEqual([x for x in plugins if x.endswith((".esm", ".esp"))],
                          ["Oblivion.esm", "DLCShiveringIsles.esp", "ForgeExampleFirebolt.esp", "ForgeTestCells.esp"])
+
+    def test_log_from_a_console_logging_plugin_is_found(self):
+        self.with_save()
+        p = self.fake(logger="conscribe")
+        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
+        self.assertIn("ConScribe Logs", res["log_source"])
+
+    def test_no_log_anywhere_is_not_a_pass(self):
+        self.with_save()
+        res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="none"))
+        self.assertEqual(res["verdict"], "NOT-RUN")
+        self.assertRealSetupUntouched(gog_too=False)
 
     def test_street_is_a_real_exterior(self):
         self.with_save()

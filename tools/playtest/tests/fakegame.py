@@ -19,7 +19,8 @@ class FakeGame:
         self.dir = game_dir
         self.b = {"menu_at": 3.0, "load_seconds": 2.0, "damage": 25.0, "freeze_at": None, "printc": True,
                   "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None,
-                  "continue_after": None, "chargen_seconds": 10.0, "save_before_chargen": False}
+                  "continue_after": None, "chargen_seconds": 10.0, "save_before_chargen": False,
+                  "logger": "scof"}           # scof | conscribe (an OBSE plugin logging every line) | none
         self.b.update(behaviour or {})
         self.state = "starting"
         self.console_open = False
@@ -95,8 +96,14 @@ class FakeGame:
 
     # console
     def write(self, line: str):
-        if self.log:
-            with open(self.log, "a", encoding="cp1252") as fh:
+        target = None
+        if self.b["logger"] == "scof":
+            target = self.log
+        elif self.b["logger"] == "conscribe":
+            target = self.dir / "Data" / "ConScribe Logs" / "Console.log"
+            target.parent.mkdir(parents=True, exist_ok=True)
+        if target:
+            with open(target, "a", encoding="cp1252") as fh:
                 fh.write(line + "\n")
 
     def run(self, cmd: str):
@@ -130,9 +137,17 @@ class FakeGame:
                 if line.strip():
                     self.run(line)
             return
-        if low.startswith("con_scof "):
+        if low.startswith("prid "):
+            self.selected = cmd.split(None, 1)[1]
+            return
+        if re.match(r"^[0-9A-Fa-f]{8}\.", cmd):
+            self.write(f'Script command "{cmd.split()[0]}" not found.')     # what the PC printed in run 5
+            return
+        if self.b["logger"] == "scof" and low.startswith("con_scof "):
             cmd, low = cmd[4:], low[4:]
-        if low.startswith("scof "):
+        if low.startswith(("scof ", "con_scof ")):
+            if self.b["logger"] != "scof":
+                return
             arg = cmd.split(None, 1)[1]
             self.log = None if arg == "0" else self.dir / arg
             return
@@ -141,10 +156,14 @@ class FakeGame:
                 self.write(cmd.split(None, 1)[1].strip('"'))
             return
         m = re.match(r"^([\w\"]+)\.(\w+)\s*(.*)$", cmd)
-        if not m:
-            self.write(f"Script command \"{cmd}\" not found.")
-            return
-        fn, args = m.group(2).lower(), m.group(3).split()
+        if m:
+            fn, args = m.group(2).lower(), m.group(3).split()
+        else:                                               # no prefix: acts on the prid-selected ref
+            parts = cmd.split()
+            fn, args = parts[0].lower(), parts[1:]
+            if not getattr(self, "selected", None):
+                self.write(f"Script command \"{cmd}\" not found.")
+                return
         if fn == "getinworldspace":
             self.write(f"GetInWorldspace >> {1.0 if args and args[0] == self.world else 0.0:.2f}")
         elif fn == "getincell":
