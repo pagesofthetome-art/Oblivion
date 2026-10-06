@@ -1,14 +1,14 @@
 # PC agent: start here
 
-You are the local Claude on Yuri's PC (`C:\Users\Shadow\Desktop\Games`). A cloud Claude session builds TES4Forge in this repo but can't see the PC, so it hands PC work to you as Markdown files. Read this file first, then the **current handoff** below.
+You are the local Claude on Yuri's PC. The repo clone is `C:\Users\Shadow\Desktop\Games\Oblivion-repo`; the GOG game is `C:\Users\Shadow\Desktop\Games\Oblivion`. A cloud Claude session builds TES4Forge in this repo but can't see the PC, so it hands PC work to you as Markdown files. Read this file first, then the **current handoff** below.
 
 ## Current handoff
 
 | | |
 |---|---|
-| **Do now** | [`docs/19-forge-phase3-pc-recon-handoff.md`](19-forge-phase3-pc-recon-handoff.md): phase 3 recon. Read-only: vanilla record dumps, CS bridge readiness, test-profile facts. |
+| **Do now** | [`docs/20-forge-phase3a-pc-handoff.md`](20-forge-phase3a-pc-handoff.md): phase 3a. Layout proof on vanilla SPEL/MGEF/ENCH/ALCH/INGR/SGST, build the Searing Bolt spec, CS bridge path check. Read-only on the game. |
 | **Branch** | `forge/phase3-plugin` |
-| **Send back** | the `_audit\forge-phase3\` files, plus answers to §2 and §3 of the handoff |
+| **Send back** | the `_audit\forge-phase3a\` results (summary lines; see §5 of the handoff) |
 
 ## How this works
 
@@ -32,4 +32,5 @@ You are the local Claude on Yuri's PC (`C:\Users\Shadow\Desktop\Games`). A cloud
 | 16 | `16-forge-phase1-handoff.md`: phase 1 merge patch on the PC | done: sha256 `c1e5a675…` |
 | 17 | `17-forge-phase2-pc-handoff.md`: knowledge store, run 1 | 18/20; ranking fixed in the cloud |
 | 18 | `18-forge-phase2-pc-run2-handoff.md`: knowledge store, run 2 | 20/20, phase 2 merged (PR #1) |
-| 19 | `19-forge-phase3-pc-recon-handoff.md`: phase 3 recon | **pending** |
+| 19 | `19-forge-phase3-pc-recon-handoff.md`: phase 3 recon | done: vanilla bytes, bridge path bug, shared Plugins.txt/INI/Saves |
+| 20 | `20-forge-phase3a-pc-handoff.md`: phase 3a layout proof + Searing Bolt | **pending** |

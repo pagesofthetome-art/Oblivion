@@ -4,7 +4,7 @@ A spec is YAML (needs PyYAML) or JSON. Shape, version 1:
 
     forge_spec: 1
     name: my-mod                     # slug, used for the build folder
-    kind: merge_patch                # merge_patch (phase 1); plugin (phase 3, not built yet)
+    kind: merge_patch                # merge_patch (phase 1); plugin (phase 3a: records; scripts in 3b)
     intent: "What the player should get, in plain words."
     vars: {STEAM_DATA: "C:/..."}     # ${STEAM_DATA} anywhere in the spec; ${env:NAME} reads the environment
     output: {plugin: X.esp, dir: ../forge-builds/my-mod}
@@ -32,7 +32,7 @@ from pathlib import Path
 SPEC_VERSION = 1
 KINDS = {
     "merge_patch": "implemented",
-    "plugin": "planned (phase 3: records and scripts from the spec)",
+    "plugin": "implemented",     # records (3a); scripts compile from phase 3b
 }
 PERMISSIONS = {
     "PROJECT_OWNED", "CAN_DISTRIBUTE", "PATCH_ONLY", "REQUIRES_ORIGINAL_DOWNLOAD",
@@ -41,8 +41,7 @@ PERMISSIONS = {
 # capabilities each kind needs (checked against the registry before building)
 KIND_CAPS = {
     "merge_patch": ["record.read", "record.merge", "record.write", "record.lint", "build.log", "package.vortex"],
-    "plugin": ["record.read", "record.write", "script.compile", "script.lint", "record.lint",
-               "conflict.check", "build.log", "package.vortex"],
+    "plugin": ["record.read", "record.encode", "record.write", "record.lint", "build.log", "package.vortex"],
 }
 VAR_RE = re.compile(r"\$\{([^}]+)\}")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -182,11 +181,29 @@ def validate(spec: Spec) -> list[str]:
         for k in ("config", "vanilla", "installed_dir", "plugins_txt"):
             if not mp.get(k):
                 errs.append(f"merge_patch.{k} is required")
+    if kind == "plugin":
+        recs = r.get("records")
+        if recs is not None and not isinstance(recs, list):
+            errs.append("records must be a list")
+        for i, rec in enumerate(recs or []):
+            if not isinstance(rec, dict) or not rec.get("sig") or not rec.get("edid"):
+                errs.append(f"records[{i}] needs sig and edid")
+        if r.get("scripts"):
+            errs.append("scripts: compiling through the CS bridge arrives in phase 3b; leave scripts: [] for now")
     return errs
 
 
+def ids_path(spec: "Spec") -> Path:
+    """The append-only EditorID -> FormID map for a plugin spec."""
+    p = spec.raw.get("ids")
+    return spec.resolve(p) if p else spec.path.with_name(spec.path.stem + ".ids.json")
+
+
 def required_caps(spec: Spec) -> list[str]:
-    return list(KIND_CAPS.get(spec.kind, []))
+    caps = list(KIND_CAPS.get(spec.kind, []))
+    if spec.kind == "plugin" and spec.raw.get("scripts"):
+        caps += ["script.compile", "script.lint"]
+    return caps
 
 
 def merge_config(spec: Spec) -> tuple[dict, Path | None]:

@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from oblivion_cs_helper import (
     CS_EXE,
+    GAME_DIR,
     SCREENSHOT_DIR,
     by_index,
     by_name,
@@ -237,7 +238,7 @@ def main() -> int:
         parser.error("--port must be between 1024 and 65535")
     try:
         if sys.stdout is None or sys.stderr is None:
-            log = ROOT / "Oblivion" / "CS-bridge.log"
+            log = GAME_DIR / "CS-bridge.log"
             log.parent.mkdir(parents=True, exist_ok=True)
             stream = open(log, "a", encoding="utf-8", buffering=1)
             if sys.stdout is None:

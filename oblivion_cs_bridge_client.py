@@ -11,7 +11,10 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parent
-TOKEN_FILE = ROOT / "Oblivion" / ".cs_bridge_token"
+sys.path.insert(0, str(ROOT / "tools"))
+from gamepaths import game_dir  # noqa: E402  (game folder may sit beside a repo clone)
+
+TOKEN_FILE = game_dir() / ".cs_bridge_token"
 BASE = "http://127.0.0.1:43821"
 
 

@@ -36,7 +36,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tes4_plugin as tp  # noqa: E402
 
 TOOL_DIR = Path(__file__).resolve().parent
-DEFAULT_DATA = (TOOL_DIR.parent / "Oblivion" / "Data")
+from gamepaths import data_dir  # noqa: E402
+
+DEFAULT_DATA = data_dir()
 BASE_GAME_FILES = {
     "oblivion.esm", "dlcshiveringisles.esp", "knights.esp", "dlchorsearmor.esp",
     "dlcmehrunesrazor.esp", "dlcvilelair.esp", "dlcfrostcrag.esp", "dlcbattlehorncastle.esp",

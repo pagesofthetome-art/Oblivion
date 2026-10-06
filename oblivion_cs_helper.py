@@ -28,9 +28,13 @@ from pywinauto import Desktop
 
 
 ROOT = Path(__file__).resolve().parent
-SCREENSHOT_DIR = ROOT / "Oblivion" / "CS-Screenshots"
+sys.path.insert(0, str(ROOT / "tools"))
+from gamepaths import game_dir  # noqa: E402  (game folder may sit beside a repo clone)
+
+GAME_DIR = game_dir()
+SCREENSHOT_DIR = GAME_DIR / "CS-Screenshots"
 CS_PROCESS = "TESConstructionSet"
-CS_EXE = ROOT / "Oblivion" / "TESConstructionSet.exe"
+CS_EXE = GAME_DIR / "TESConstructionSet.exe"
 
 
 def process_image_path(pid: int) -> str:

@@ -1,0 +1,6 @@
+{
+ "_about": "Layout facts the xEdit extractor can't see (defined in xEdit's common units). Each entry names its evidence.",
+ "enums": {
+  "EFIT.Type": {"values": ["Self", "Touch", "Target"], "source": "xEdit wbDefinitionsCommon wbEffectTypeEnum; PC recon 2026-10-06: vanilla Flare/Flash Bolt EFIT range 2 = Target", "confidence": "CONFIRMED_MULTI_SOURCE"}
+ }
+}

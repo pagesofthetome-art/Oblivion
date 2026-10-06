@@ -41,19 +41,32 @@ test_plan:
 
 ## 3. Milestones
 
-- **3a: records.** Encoder + `kind: plugin` + the fire-bolt spec, with no scripts.
+- **3a: records.** Encoder + `kind: plugin` + the fire-bolt spec, with no scripts. **Built in the cloud (`specs/ak-searing-bolt.yaml`).**
   - Cloud: fixture tests and deterministic bytes.
   - PC: **re-encode every vanilla SPEL and MGEF from its decoded fields and get identical bytes**. This proves the layouts.
 - **3b: scripts.** `script.compile` through the CS bridge, plus the compile cache. Test: a magic-effect script (SEFF) spell compiles and its `SCDA` matches the cache on rebuild.
 - **3c: in game.** Fire-bolt test in an isolated test profile, never the Rebirth+ play setup or the main save. It needs the profile question (§4) answered first.
 
-## 4. Open questions (PC recon, see `docs/19-forge-phase3-pc-recon-handoff.md`)
+## 4. PC recon results (handoff 19, 2026-10-06)
 
-1. **Exact vanilla bytes** of a fire-bolt SPEL, the FIDG MGEF and one magic-effect script. These give the encoder's ground truth and fill the `EFIT`/`SCIT` layouts.
-2. **CS bridge readiness:** is the bridge task alive, and are `obse_loader.exe` and `obse_editor_1_2.dll` present?
-3. **Test-profile isolation:** AGENTS.md says the GOG and Steam copies share `Plugins.txt` and `Oblivion.ini`. Activating a test plugin in the GOG copy would then change the Rebirth+ play setup.
-   - Need: the current `bUseMyGamesDirectory` and `SLocalSavePath` values, and whether the GOG folder has its own `Oblivion.ini`.
-   - Candidate approach: a GOG-only INI with `bUseMyGamesDirectory=0`. Then the GOG copy keeps INI and saves in its own folder. Whether `Plugins.txt` also moves is **unverified**.
+- **Vanilla bytes** (GOG Oblivion.esm):
+  - Flare / Flash Bolt: `EDID FULL SPIT EFID EFIT`. EFIT = FIDG, magnitude, area, duration, range (2 = Target), actor value 8 (= Health; also xEdit's default).
+  - Script-effect spells add `SCIT` + a second `FULL`. SCIT = script FormID, school, visual (char4), hostile u8, 3 pad bytes.
+  - Pad bytes hold CS garbage (`cd cd cd`, `1b 56 00`), so the codec keeps them raw.
+  - TestPetStay's SPIT type 3 is **Lesser Power** per xEdit's enum. The recon guessed "ability", which is 4.
+- **Extractor bug found and fixed:** `wbStructSK(EFIT, [4, 5], '', [...])` hid the EFIT/SCIT layouts (sort-key list read as the field list). Re-extracted; enums and flags are now captured.
+- **CS bridge:** the client looked for the token inside the repo clone (`Desktop\Games\Oblivion-repo\Oblivion`).
+  - Fixed: `tools/gamepaths.py` resolves the game folder (env `OBLIVION_GAME_DIR` → `<repo>\Oblivion` → `<repo>\..\Oblivion` → `Desktop\Games\Oblivion`), for the bridge client, CS helper/server, xedit_run, modlint and capabilities.
+  - The editor files are present (obse_loader, obse_editor_1_2.dll, TESConstructionSet.exe, OBSE\obse.ini). `CSBackups\` doesn't exist yet.
+- **Test profile:** the GOG and Steam copies share **one** `Plugins.txt` (229 lines, the Rebirth+ list), **one** `Oblivion.ini` (`bUseMyGamesDirectory=1`, `SLocalSavePath=Saves\`) and **one** Saves folder (27 saves). There's no GOG-local INI.
+  - So 3c can't just "use the GOG copy": activating a test plugin there changes the Rebirth+ setup.
+  - Options for 3c, Yuri to choose:
+    - **A. Profile swap tool** (`forge testprofile enter/exit`):
+      - Back up `Plugins.txt` and `Oblivion.ini` with hashes, then write a test `Plugins.txt` (vanilla + test plugin) and an INI copy with `SLocalSavePath=TestSaves\`.
+      - `exit` restores both and verifies the hashes. It refuses to run while the game runs.
+      - The main saves are never touched; test saves go in `TestSaves\`.
+    - **B. Wrye Bash / mod-manager profile** for the GOG copy (if one is set up later).
+    - **C. Test in the Rebirth+ setup itself** after packaging. This breaks the "never the play setup" rule, so it's not recommended.
 
 ## 5. Rules carried over
 

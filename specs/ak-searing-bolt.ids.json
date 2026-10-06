@@ -1,0 +1,8 @@
+{
+ "plugin": "AKSearingBolt.esp",
+ "next": "000801",
+ "ids": {
+  "AKSearingBolt": "000800"
+ },
+ "retired": {}
+}

@@ -158,6 +158,29 @@ class Interp:
             depth += 1
         return node
 
+    def names(self, args) -> dict | None:
+        """Enum / flag / char4 info of an integer field: {"enum": [...]} | {"flags": [...]} | {"char4": True}."""
+        for x in args:
+            x = self.resolve(x)
+            fn = x.get("fn", "")
+            if fn == "wbEnum" or fn == "wbFlags":
+                lists = [y for y in x.get("args", []) if "list" in y]
+                if not lists:
+                    continue
+                items = lists[0]["list"]
+                if not items and len(lists) > 1:          # wbEnum([], [index, 'name', ...]) sparse form
+                    pairs = lists[1]["list"]
+                    sparse = {}
+                    for i in range(0, len(pairs) - 1, 2):
+                        if "num" in pairs[i] and "str" in pairs[i + 1]:
+                            sparse[str(int(pairs[i]["num"]))] = pairs[i + 1]["str"]
+                    return {"enum_sparse": sparse} if sparse else None
+                vals = [y.get("str", "") for y in items]
+                return {"enum" if fn == "wbEnum" else "flags": vals}
+            if x.get("id") == "wbChar4":
+                return {"char4": True}
+        return None
+
     def fields(self, items, prefix=""):
         """Flatten struct members to (name, type, size|None, formid)."""
         out = []
@@ -168,7 +191,7 @@ class Interp:
             nm = prefix + (_name(a) or fn)
             if fn.startswith("wbInteger"):
                 it_type = next((x["id"] for x in a if "id" in x and x["id"] in INT_SIZE), None)
-                out.append((nm, it_type or "int", INT_SIZE.get(it_type), False))
+                out.append((nm, it_type or "int", INT_SIZE.get(it_type), False, self.names(a)))
             elif fn.startswith("wbFloat"):
                 out.append((nm, "float", 4, False))
             elif fn.startswith("wbFormID"):
@@ -180,8 +203,8 @@ class Interp:
                 n = next((int(x["num"]) for x in a if "num" in x), 0)
                 out.append((nm, "string", n or None, False))
             elif fn.startswith("wbStruct"):
-                lst = next((x for x in a if "list" in x), {"list": []})
-                out += self.fields(lst["list"], nm + ".")
+                lsts = [x for x in a if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
+                out += self.fields(lsts[-1]["list"] if lsts else [], nm + ".")
             elif fn.startswith("wbUnion"):
                 lst = next((x for x in a if "list" in x), {"list": []})
                 alts = [self.fields([x]) for x in lst["list"]]
@@ -226,8 +249,10 @@ class Interp:
                 targets = [s for x in a for s in _sigs(x)] if kind == "formid" else []
                 flds = []
                 if kind in ("struct",):
-                    lst = next((x for x in a if "list" in x), {"list": []})
-                    flds = self.fields(lst["list"])
+                    # the member list is the last list argument holding calls; wbStructSK puts a
+                    # list of sort-key indexes ([4, 5]) before it
+                    lsts = [x for x in a if "list" in x and any("fn" in y or "id" in y for y in x["list"])]
+                    flds = self.fields(lsts[-1]["list"] if lsts else [])
                 elif kind in ("array", "union"):
                     flds = self.fields([x for x in a[1:] if "fn" in x or "id" in x])
                 elif kind in ("int", "float", "formid"):
@@ -264,8 +289,12 @@ def extract(pas_file: Path) -> list[dict]:
         subs = []
         for i, m in enumerate(members):
             off, layout = 0, []
-            for name, typ, size, fid in m["fields"]:
-                layout.append({"name": name, "type": typ, "offset": off, "size": size, "formid": fid})
+            for f in m["fields"]:
+                name, typ, size, fid = f[:4]
+                entry = {"name": name, "type": typ, "offset": off, "size": size, "formid": fid}
+                if len(f) > 4 and f[4]:
+                    entry.update(f[4])
+                layout.append(entry)
                 off = None if off is None or size is None else off + size
             m = dict(m, order=i, fields=layout)
             subs.append(m)

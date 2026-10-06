@@ -18,9 +18,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]     # repo root (Desktop\Games on the PC)
 TOOLS = ROOT / "tools"
-XEDIT_EXE = ROOT / "TesIvedit" / "TES4Edit 4.1.5f" / "TES4Edit.exe"
-CS_TOKEN = ROOT / "Oblivion" / ".cs_bridge_token"
-OBSE_LOADER = ROOT / "Oblivion" / "obse_loader.exe"
+import sys as _sys
+if str(TOOLS) not in _sys.path:
+    _sys.path.insert(0, str(TOOLS))
+from gamepaths import game_dir, workspace_dir  # noqa: E402
+
+XEDIT_EXE = workspace_dir() / "TesIvedit" / "TES4Edit 4.1.5f" / "TES4Edit.exe"
+CS_TOKEN = game_dir() / ".cs_bridge_token"
+OBSE_LOADER = game_dir() / "obse_loader.exe"
 
 
 @dataclass
@@ -86,6 +91,11 @@ REGISTRY: list[Capability] = [
                [_p("patchlib.Writer", "tools/merge-patch/patchlib.py:Writer"),
                 _p("TES4Edit", "tools/xedit_run.py", f"file:{XEDIT_EXE}", "windows")],
                "forge.tests.test_merge_patch (round-trip)", "HIGH_CONFIDENCE", "implemented"),
+    Capability("record.encode", "Encode subrecords from named fields (schema-driven, pad bytes preserved).",
+               "spec records / decoded fields", "subrecord bytes",
+               [_p("forge.records", "tools/forge/records.py + kb/data/record_schemas.json")],
+               "forge.tests.test_plugin_build; PC: forge layout-check (re-encode vanilla SPEL/MGEF)",
+               "HIGH_CONFIDENCE", "implemented", 3),
     Capability("record.lint", "UDR, deleted, ITM, bad FormIDs, masters, uncompiled scripts.",
                "plugin + Data folder", "issue list",
                [_p("modlint", "tools/modlint.py:lint_plugin")],

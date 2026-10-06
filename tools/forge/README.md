@@ -22,6 +22,29 @@ python -m pip install -r tools\requirements-forge.txt     (PyYAML, for .yaml spe
 | `forge lint\|info\|records\|conflicts\|load-order\|find …` | → `tools\modlint.py`; arguments pass straight through. |
 | `forge xedit …` / `forge cs …` / `forge asset …` | → `xedit_run.py` / the CS bridge client / `assetkit.build`. |
 
+## New plugins from records (`kind: plugin`, phase 3a)
+
+```yaml
+kind: plugin
+output: {plugin: AKSearingBolt.esp}
+ids: ak-searing-bolt.ids.json          # EditorID -> FormID, append-only: commit it
+dependencies: {masters: [Oblivion.esm]}
+records:
+  - sig: SPEL
+    edid: AKSearingBolt
+    FULL: Searing Bolt
+    SPIT: {Type: Spell, Cost: 60, Level: Apprentice, Flags: []}
+    effects: [{effect: FIDG, magnitude: 30, area: 5, range: Target}]
+lint: {data: "C:/Users/Shadow/Desktop/Games/Oblivion/Data"}
+```
+- **Fields:** record keys are subrecord signatures. Field names and enum/flag values come from `forge kb record SPEL`. Subrecord order follows the schema, i.e. vanilla order.
+- **References:** `Oblivion.esm:046EC0`, `Oblivion.esm:EditorID` (needs the KB vanilla index), or one of the spec's own EditorIDs.
+- **FormIDs:** new records start at `000800`. An EditorID keeps its ID forever. Move a dropped one to `retired`; it's never reused, because renumbering breaks saves.
+- **Checks:** every build re-reads the plugin and re-encodes each subrecord (round-trip), lints against `lint.data`, logs hashes, and can `--package`.
+- **`forge dump <plugin> <EDID|FormID>`** decodes a record, with enum names and FormIDs as `Owner:OOOOOO`.
+- **`forge layout-check <plugin> --sig SPEL`** re-encodes every record of a type and must report PASS: identical bytes, no undecoded leftovers. It proves a layout against vanilla.
+- **Scripts** (`scripts:`) compile through the CS bridge from phase 3b.
+
 ## Knowledge store (`forge kb`, phase 2)
 
 `forge-kb.sqlite` answers a modding question in one call instead of a guess. Every row carries `source` and `confidence` (`CONFIRMED_MULTI_SOURCE`, `HIGH_CONFIDENCE`, `HYPOTHESIS`). Text output labels a HYPOTHESIS as unverified.

@@ -30,12 +30,15 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent          # ...\Desktop\Games
-XEDIT_DIR = ROOT / "TesIvedit" / "TES4Edit 4.1.5f"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gamepaths import game_dir, workspace_dir  # noqa: E402
+
+XEDIT_DIR = workspace_dir() / "TesIvedit" / "TES4Edit 4.1.5f"
 XEDIT_EXE = XEDIT_DIR / "TES4Edit.exe"
 SCRIPTS_SRC = Path(__file__).resolve().parent / "xedit-scripts"
 SCRIPTS_DST = XEDIT_DIR / "Edit Scripts"
 REPORTS = XEDIT_DIR / "Agent-Reports"
-GAME_DIR = ROOT / "Oblivion"
+GAME_DIR = game_dir()
 DATA_DIR = GAME_DIR / "Data"
 BACKUPS = GAME_DIR / "CSBackups"
 OFFICIAL = {"oblivion.esm", "dlcshiveringisles.esp", "knights.esp", "dlchorsearmor.esp", "dlcmehrunesrazor.esp",

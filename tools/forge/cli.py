@@ -8,6 +8,7 @@
     forge compare <a.esp> <b.esp> [--json]  byte-identical / record-identical / different
     forge kb <command> ...                  knowledge store (forge kb --help)
     forge dump <plugin> <EDID|FormID>       decode a record's subrecords (read-only)
+    forge layout-check <plugin> [--sig S]   re-encode every record of a type byte for byte (read-only)
 
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
@@ -206,7 +207,99 @@ def cmd_build(a) -> int:
         return 1
     out_dir = s.output_dir(Path(a.out) if a.out else None)
     _guard_output(out_dir)
+    if s.kind == "plugin":
+        return _build_plugin(s, out_dir, a, t0, caps)
     return _build_merge_patch(s, out_dir, a, t0, caps)
+
+
+def _build_plugin(s, out_dir: Path, a, t0: float, caps) -> int:
+    """kind: plugin (phase 3a): records from the spec -> new plugin, round-trip, lint, log."""
+    from forge.providers import plugin as pp
+    from forge import records as R
+    from forge.kb.build import DEFAULT_DB
+    import modlint
+    import tes4_plugin as tp
+
+    ids_file = specmod.ids_path(s)
+    kb_db = s.resolve(s.raw["kb"]) if s.raw.get("kb") else DEFAULT_DB
+    try:
+        res = pp.build(s, ids_file, kb_db)
+    except (pp.PluginError, R.CodecError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    out_dir.mkdir(parents=True, exist_ok=True)
+    plugin_path = out_dir / s.output_plugin
+    plugin_path.write_bytes(res.data)
+    if res.ids_changed:
+        ids_file.write_text(json.dumps(res.ids, indent=1) + "\n", encoding="utf-8")
+
+    warnings, failures = [], []
+    # round trip: every subrecord we wrote decodes and re-encodes to the same bytes
+    rt = {"records": 0, "subrecords": 0, "mismatches": 0}
+    pl = None
+    for pl, r in tp.iter_records(plugin_path):
+        rt["records"] += 1
+        subs = [(x.sig, x.data) for x in r.subrecords()]
+        for (sig, data), d in zip(subs, R.decode_record(r.sig, subs)):
+            rt["subrecords"] += 1
+            if R.encode(r.sig, d, d["nth"]) != data:
+                rt["mismatches"] += 1
+    if pl is not None and pl.errors:
+        failures.append(f"parse errors: {pl.errors}")
+    if rt["mismatches"] or rt["records"] != len(res.records):
+        failures.append(f"round-trip: {rt}")
+    lint_data = s.resolve((s.section("lint") or {}).get("data")) if (s.section("lint") or {}).get("data") else None
+    lint = None
+    if lint_data and lint_data.is_dir():
+        lint = modlint.lint_plugin(plugin_path, lint_data, True, None)
+        if lint["summary"].get("error"):
+            failures.append("lint: " + "; ".join(i["message"] for i in lint["issues"] if i["level"] == "error"))
+        if lint["summary"].get("warning"):
+            warnings.append("lint: " + "; ".join(i["message"] for i in lint["issues"] if i["level"] == "warning"))
+    else:
+        warnings.append("lint skipped: set lint.data to a Data folder holding the masters")
+    out_sha = buildlog.sha256_bytes(res.data)
+    expect = s.section("expect")
+    if expect.get("sha256") and expect["sha256"].lower() != out_sha:
+        failures.append(f"sha256 {out_sha} != expected {expect['sha256']}")
+    (out_dir / "records.json").write_text(json.dumps(res.records, indent=1), encoding="utf-8")
+
+    status = "failed" if failures else "ok"
+    code_files = [TOOLS / "tes4_plugin.py", TOOLS / "modlint.py", TOOLS / "merge-patch" / "patchlib.py",
+                  TOOLS / "forge" / "records.py", Path(pp.__file__), TOOLS / "forge" / "kb" / "data" / "record_schemas.json",
+                  TOOLS / "forge" / "kb" / "data" / "layout_overrides.json", Path(__file__)]
+    log = {
+        "spec": s.name, "kind": s.kind, "status": status,
+        "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)), "finished": buildlog.now(),
+        "seconds": round(time.time() - t0, 2), "command": [Path(sys.argv[0]).name, *sys.argv[1:]],
+        "vars": s.vars, "capabilities": caps, "tool_versions": buildlog.tool_versions(code_files),
+        "inputs": {"spec": buildlog.file_entry(s.path), "ids": buildlog.file_entry(ids_file)},
+        "outputs": {"plugin": buildlog.file_entry(plugin_path),
+                    "records": buildlog.file_entry(out_dir / "records.json")},
+        "masters": res.masters, "records": res.records,
+        "checks": {"roundtrip": rt, "lint": {"summary": lint["summary"], "issues": lint["issues"][:50]} if lint else None},
+        "warnings": warnings, "failures": failures,
+    }
+    if a.package and status == "ok":
+        from forge.package import make_zip
+        log["outputs"]["package"] = buildlog.file_entry(make_zip(s, out_dir, plugin_path, log))
+    log_path = buildlog.write(out_dir, log)
+    summary = {"status": status, "plugin": str(plugin_path), "sha256": out_sha, "masters": res.masters,
+               "records": res.records, "ids_file": str(ids_file), "ids_changed": res.ids_changed,
+               "warnings": warnings, "failures": failures, "build_log": str(log_path)}
+    text = [f"build {s.name}: {status.upper()}  ({log['seconds']}s)",
+            f"  plugin  {plugin_path}", f"  sha256  {out_sha}", f"  masters {', '.join(res.masters) or '-'}"]
+    text += [f"  record  {r['sig']} {r['edid']}  {s.output_plugin}:{r['objid']}" for r in res.records]
+    text.append(f"  round-trip {rt['subrecords']} subrecords, {rt['mismatches']} mismatches")
+    text.append(f"  lint    {(lint['summary'] or 'no issues') if lint else 'skipped'}")
+    if res.ids_changed:
+        text.append(f"  ids     new FormIDs written to {ids_file} (commit it; IDs are permanent)")
+    text += [f"  warn    {w}" for w in warnings] + [f"  FAIL    {f}" for f in failures]
+    if "package" in log["outputs"]:
+        text.append(f"  package {log['outputs']['package']['path']}")
+    text.append(f"  log     {log_path}")
+    _print(summary, a.json, "\n".join(text))
+    return 0 if status == "ok" else 2
 
 
 def _build_merge_patch(s, out_dir: Path, a, t0: float, caps) -> int:
@@ -359,6 +452,36 @@ def cmd_package(a) -> int:
     return 0
 
 
+def cmd_layout_check(argv: list[str]) -> int:
+    """forge layout-check <plugin> [--data DIR] [--sig SPEL --sig MGEF] [--json]"""
+    import argparse
+    from forge import records as R
+    ap = argparse.ArgumentParser(prog="forge layout-check",
+                                 description="Decode and re-encode every subrecord of the given record types; "
+                                             "pass = all identical and no struct leaves undecoded bytes.")
+    ap.add_argument("plugin"); ap.add_argument("--data", type=Path)
+    ap.add_argument("--sig", action="append"); ap.add_argument("--json", action="store_true")
+    a = ap.parse_args(argv)
+    path = (a.data / a.plugin) if a.data else Path(a.plugin)
+    if not path.is_file():
+        print(f"error: not found: {path}", file=sys.stderr)
+        return 1
+    sigs = {x.upper() for x in (a.sig or ["SPEL", "MGEF"])}
+    res = R.layout_check(path, sigs)
+    ok = res["mismatch"] == 0 and res["with_tail"] == 0 and res["records"] > 0
+    res["pass"] = ok
+    lines = [f"layout-check {path.name} {sorted(sigs)}: {'PASS' if ok else 'FAIL'}",
+             f"  records {res['records']}  subrecords {res['subrecords']}  identical {res['identical']}  "
+             f"mismatch {res['mismatch']}",
+             f"  decoded as struct {res['struct']}, string {res['string']}, raw {res['raw']}  "
+             f"(structs with leftover bytes: {res['with_tail']})"]
+    for e in res["examples"][:10]:
+        lines.append(f"  {'MISMATCH' if not e['ok'] else 'TAIL'} {e['record']} {e['sub']} ({e['size']} bytes): "
+                     f"{json.dumps(e['decoded'])[:200]}")
+    _print(res, a.json, "\n".join(lines))
+    return 0 if ok else 2
+
+
 def cmd_compare(a) -> int:
     from forge.compare import compare
     r = compare(a.a, a.b)
@@ -392,6 +515,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and (argv[0] in MODLINT_CMDS or argv[0] in WRAPPED):
         return run_wrapped(argv[0], argv[1:])
+    if argv and argv[0] == "layout-check":
+        return cmd_layout_check(argv[1:])
     if argv and argv[0] == "dump":
         from forge.dump import main as dump_main
         return dump_main(argv[1:])
@@ -418,6 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_compare)
     sub.add_parser("kb", help="knowledge store: forge kb --help")
     sub.add_parser("dump", help="decode a record's subrecords: forge dump <plugin> <EDID|FormID>")
+    sub.add_parser("layout-check", help="re-encode every SPEL/MGEF (or --sig X) byte for byte")
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)

@@ -26,12 +26,13 @@ FMT = {"itU8": "<B", "itS8": "<b", "itU16": "<H", "itS16": "<h", "itU32": "<I", 
 
 
 def _schemas() -> dict:
+    from forge import records as R
     out = {}
-    for r in json.loads(SCHEMAS.read_text(encoding="utf-8")):
+    for sig, subs_list in R.schemas().items():
         subs = {}
-        for s in r["subrecords"]:
+        for s in subs_list:
             subs.setdefault(s["sig"], s)       # first definition of a signature wins
-        out[r["sig"]] = subs
+        out[sig] = subs
     return out
 
 
@@ -58,7 +59,18 @@ def decode(plugin, rec_sig: str, sub, schema: dict | None) -> list[dict]:
             break
         if typ in FMT:
             v = struct.unpack_from(FMT[typ], d, o)[0]
-            v = _fid(plugin, v) if f["formid"] else (round(v, 4) if typ == "float" else v)
+            raw = d[o:o + size]
+            if f["formid"]:
+                v = _fid(plugin, v)
+            elif typ == "float":
+                v = round(v, 4)
+            elif f.get("char4") and all(32 <= c < 127 for c in raw):
+                v = raw.decode("latin-1")
+            elif f.get("enum") and 0 <= v < len(f["enum"]) and f["enum"][v]:
+                v = f"{f['enum'][v]} ({v})"
+            elif f.get("flags"):
+                names = [f["flags"][i] for i in range(len(f["flags"])) if v >> i & 1]
+                v = f"{v:#x} {names}" if names else v
         elif typ == "bytes":
             v = d[o:o + size].hex()
         elif typ == "string":
