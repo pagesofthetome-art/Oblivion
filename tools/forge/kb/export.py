@@ -2,10 +2,12 @@
 
     forge kb export-vanilla  --data <Oblivion\\Data> --out vanilla_index.jsonl
     forge kb export-commands --exe <Oblivion.exe>    --out vanilla_commands.jsonl
+    forge kb export-scripts  --data <Oblivion\\Data> [--exe <Oblivion.exe>] --out forge-script-corpus.jsonl.gz
 """
 
 from __future__ import annotations
 
+import gzip
 import json
 import struct
 import sys
@@ -116,19 +118,19 @@ CMD = struct.Struct("<IIIIHHIIIII")     # CommandInfo, 40 bytes (xOBSE CommandTa
 PARAM = struct.Struct("<III")            # ParamInfo: typeStr*, typeID, isOptional
 
 
-def _cmd_at(pe: PE, off: int):
+def _cmd_at(pe: PE, off: int, ops: range = range(0x100, 0x2000)):
     if off < 0 or off + CMD.size > len(pe.b):
         return None
     name, short, opcode, helptext, needs_parent, nparams, params, *_ = CMD.unpack_from(pe.b, off)
     n = pe.cstr(name, 64)
-    if not n or not n.replace("_", "").isalnum() or not (0x100 <= opcode < 0x2000) or nparams > 32:
+    if not n or not n.replace("_", "").isalnum() or opcode not in ops or nparams > 32:
         return None
     return {"name": n, "alias": (pe.cstr(short, 64) or "") if short else "", "opcode": opcode,
             "help": (pe.cstr(helptext) or "") if helptext else "", "ref_required": bool(needs_parent),
             "nparams": nparams, "params_va": params}
 
 
-def find_table(pe: PE, anchor: str, opcode: int | None = None) -> list[dict]:
+def find_table(pe: PE, anchor: str, opcode: int | None = None, ops: range = range(0x100, 0x2000)) -> list[dict]:
     """Locate a CommandInfo array via a known command name, then walk it both ways."""
     needle = anchor.encode() + b"\0"
     pos = pe.b.find(b"\0" + needle) + 1
@@ -138,21 +140,21 @@ def find_table(pe: PE, anchor: str, opcode: int | None = None) -> list[dict]:
             ref = struct.pack("<I", va)
             j = pe.b.find(ref)
             while j >= 0:
-                c = _cmd_at(pe, j)
+                c = _cmd_at(pe, j, ops)
                 if c and c["name"] == anchor and (opcode is None or c["opcode"] == opcode):
-                    return _walk(pe, j)
+                    return _walk(pe, j, ops)
                 j = pe.b.find(ref, j + 1)
         pos = pe.b.find(b"\0" + needle, pos) + 1
     return []
 
 
-def _walk(pe: PE, start: int) -> list[dict]:
-    rows = [_cmd_at(pe, start)]
+def _walk(pe: PE, start: int, ops: range = range(0x100, 0x2000)) -> list[dict]:
+    rows = [_cmd_at(pe, start, ops)]
     o = start - CMD.size
-    while (c := _cmd_at(pe, o)) and c["opcode"] == rows[0]["opcode"] - 1:
+    while (c := _cmd_at(pe, o, ops)) and c["opcode"] == rows[0]["opcode"] - 1:
         rows.insert(0, c); o -= CMD.size
     o = start + CMD.size
-    while (c := _cmd_at(pe, o)) and c["opcode"] == rows[-1]["opcode"] + 1:
+    while (c := _cmd_at(pe, o, ops)) and c["opcode"] == rows[-1]["opcode"] + 1:
         rows.append(c); o += CMD.size
     for c in rows:
         params = []
@@ -166,14 +168,74 @@ def _walk(pe: PE, start: int) -> list[dict]:
     return rows
 
 
-def export_commands(exe: Path, out: Path) -> dict:
+BLOCK_OPS = range(0, 0x100)
+
+
+def find_block_table(pe: PE) -> list[dict]:
+    """The script block types (GameMode, OnActivate, ...). The compiler matches `begin <name>`
+    against CommandInfo names (xOBSE Hooks_Script.cpp), so they sit in a CommandInfo array whose
+    opcode field is the block-type code written after `begin` in SCDA (HYPOTHESIS until the corpus
+    survey confirms it)."""
+    for anchor in ("ScriptEffectStart", "OnActivate", "GameMode"):
+        rows = find_table(pe, anchor, None, BLOCK_OPS)
+        if len(rows) > 1:
+            return rows
+    return []
+
+
+def command_tables(exe: Path) -> dict[str, list[dict]]:
     pe = PE(Path(exe).read_bytes())
     script = find_table(pe, "PlaceAtMe", 0x1025)       # opcode fixed by xOBSE CommandTable.cpp
     console = find_table(pe, "CenterOnCell")
     if not script:
         raise ValueError("script command table not found (is this Oblivion.exe 1.2.0.416, unpacked?)")
+    return {"script": script, "console": console, "block": find_block_table(pe)}
+
+
+def export_commands(exe: Path, out: Path) -> dict:
+    tables = command_tables(exe)
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
-        for kind, rows in (("script", script), ("console", console)):
+        for kind, rows in tables.items():
             for r in rows:
                 fh.write(json.dumps(dict(r, table=kind), ensure_ascii=False) + "\n")
-    return {"script_commands": len(script), "console_commands": len(console)}
+    return {"script_commands": len(tables["script"]), "console_commands": len(tables["console"]),
+            "block_types": len(tables["block"])}
+
+
+# --------------------------------------------------------------------------- script corpus
+def export_scripts(data: Path, out: Path, exe: Path | None = None, plugins: list[str] | None = None) -> dict:
+    """One gzip'd JSONL bundle for the script compiler: every script (SCHR/SCDA/SCTX/vars/refs) in
+    the official files, every EditorID'd form (for name resolution), and the exe's command and
+    block tables. Bethesda-derived: git-ignored, never committed."""
+    from forge.script.extract import iter_scripts, resolve_refs
+
+    data = Path(data)
+    forms: dict = {}
+    scripts, counts = [], {}
+    for name in plugins or OFFICIAL:
+        path = next((p for p in data.iterdir() if p.name.casefold() == name.casefold()), None) \
+            if data.is_dir() else None
+        if path is None:
+            counts[name] = "missing"
+            continue
+        n = {"SCPT": 0, "QUST": 0, "INFO": 0}
+        for row, _plugin in iter_scripts(path, forms):
+            scripts.append(row)
+            n[row["sig"]] += 1
+        counts[path.name] = n
+    for row in scripts:
+        resolve_refs(row, forms)
+    tables = command_tables(exe) if exe else {}
+    meta = {"row": "meta", "format": 1, "plugins": counts, "scripts": len(scripts), "forms": len(forms),
+            "commands": {k: len(v) for k, v in tables.items()},
+            "note": "Bethesda-derived. Local use only; never commit. sctx is latin-1 (lossless)."}
+    with gzip.open(out, "wt", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(meta) + "\n")
+        for kind, rows in tables.items():
+            for r in rows:
+                fh.write(json.dumps(dict(r, row="command", table=kind), ensure_ascii=False) + "\n")
+        for f in forms.values():
+            fh.write(json.dumps(f, ensure_ascii=False) + "\n")
+        for row in scripts:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return meta

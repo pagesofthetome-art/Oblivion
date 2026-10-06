@@ -45,6 +45,14 @@ lint: {data: "C:/Users/Shadow/Desktop/Games/Oblivion/Data"}
 - **`forge layout-check <plugin> --sig SPEL`** re-encodes every record of a type and must report PASS: identical bytes, no undecoded leftovers. It proves a layout against vanilla.
 - **Scripts** (`scripts:`) compile through the CS bridge from phase 3b.
 
+## Scripts (`forge script-decode`, phase 3b, steps S0–S1)
+
+Forge is getting its own script compiler; the plan is in `docs/forge-script-compiler-plan.md`. The first two steps are built:
+- **`forge kb export-scripts --data <Data> --exe <Oblivion.exe>`** (PC only) writes `forge-script-corpus.jsonl.gz`. It holds every vanilla script (bytecode, source, variables, references), the EditorIDs, and the exe's command and block-type tables. It's Bethesda-derived and git-ignored.
+- **`forge script-decode <plugin|corpus>`** decompiles SCDA bytecode.
+  - The default output is a survey: the pass rate (gate: 100%), failures by kind, and what the jump fields count.
+  - `--show EDID --source` prints one script's listing next to its source.
+
 ## Knowledge store (`forge kb`, phase 2)
 
 `forge-kb.sqlite` answers a modding question in one call instead of a guess. Every row carries `source` and `confidence` (`CONFIRMED_MULTI_SOURCE`, `HIGH_CONFIDENCE`, `HYPOTHESIS`). Text output labels a HYPOTHESIS as unverified.

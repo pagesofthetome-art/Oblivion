@@ -83,9 +83,14 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] 3b recon take 1 (handoff 25): blocked. `obse_loader -editor` loads the Construction Set Extender v11, which refuses to run without admin rights. Nothing was saved.
 - [x] 3b recon take 2 (handoff 26): the plain CS starts cleanly (no CSE). Script Edit's text box (#4 RichEdit20A) stays disabled until a New script exists; the bridge couldn't list or press toolbar buttons. Data unchanged. CSE needs admin and has no skip option; the bridge task isn't elevated.
 - [x] Bridge: `toolbar`, `toolbar-press` (WM_COMMAND, no mouse), `menus`, `menu-command`; `FORGE_CS_BRIDGE_PORT` for a temporary repo-run bridge.
-- [ ] **Direction change (Yuri, 2026-10-06):** forge gets its **own script compiler**, validated against every vanilla script; the CS becomes an optional cross-check. Evaluation and plan: `docs/forge-script-compiler-plan.md` (awaiting approval).
+- [x] **Direction change (Yuri, 2026-10-06):** forge gets its **own script compiler**, validated against every vanilla script; the CS becomes an optional cross-check. Plan `docs/forge-script-compiler-plan.md` **approved**. The corpus may be uploaded to the cloud. OBSE validation against research-mod scripts happens on the PC only.
+- [x] S0 code: `forge kb export-scripts` (corpus bundle) + the exe's block-type table in `export-commands`.
+- [x] S1 code: the `forge script-decode` decompiler + survey (8 fixture tests).
+- [ ] S0+S1 PC run (handoff 28): corpus exported, survey reported, corpus uploaded.
+- [ ] S1 gate: 100% of the vanilla corpus decodes with no leftover bytes.
+- [ ] S2–S6: the compiler, up to the ≥99% byte-identical gate. S7: OBSE (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
-- [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
+- [ ] ~~3b: `script.compile` through the CS bridge~~ replaced by forge's own compiler (above); the CS is an optional cross-check only.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 
 ## Phase 4: primitives

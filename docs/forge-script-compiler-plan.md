@@ -1,6 +1,9 @@
 # TES4Forge's own script compiler: evaluation and plan
 
-**Status:** proposal for Yuri (2026-10-06). Nothing is built yet.
+**Status:** approved by Yuri (2026-10-06). S0 and S1 are built; their PC run is handoff 28.
+**Decisions (Yuri, 2026-10-06):**
+1. The plan is approved. The PC exports the vanilla script corpus (S0), and Yuri uploads it to the cloud session for local iteration. It is never committed.
+2. The research mods' OBSE scripts may be used for validation (S7), **on the PC only**: pass rates and failure counts may come back to the cloud; script text and bytes stay on the PC.
 **Direction (Yuri):** TES4Forge should be the AI's own construction kit and shouldn't depend on driving the CS window. The CS bridge stays only as an optional cross-check.
 
 ## 1. What has to be produced
@@ -49,9 +52,28 @@ For every script (SCPT records, plus the result scripts inside QUST stages, INFO
 | S4 | References: `ref.Func`, `Quest.var`, SCRO ordering; SCHR and SLSD exact. | |
 | S5 | Result scripts in QUST/INFO/PACK. | |
 | S6 | Gate: ≥99% of the vanilla corpus byte-identical, the rest explained. `kind: plugin` specs can then carry `scripts:` with no CS involved. | Phase 3b done. |
-| S7 | OBSE syntax (only after your decision on the mod corpus). | OBSE corpus check. |
+| S7 | OBSE syntax. | OBSE corpus check, run **on the PC only** against the research mods' scripts; only pass rates and failure counts come back. |
 
 `forge script-check <plugin>` works like `layout-check`. It compiles every script's SCTX, compares SCDA/SCRO/SLSD/SCHR with what the plugin holds, and prints PASS rate, failures by construct, and the first differing byte with the decompiled context.
+
+## 3b. What S0 and S1 deliver (built 2026-10-06)
+
+- **`forge kb export-scripts --data <Data> [--exe <Oblivion.exe>] [--out forge-script-corpus.jsonl.gz]`** writes one gzip'd JSONL bundle. It holds:
+  - a `meta` row;
+  - `command` rows: the exe's script, console and **block-type** tables;
+  - `form` rows: every EditorID'd record, with its script (SCRI) and a placed reference's base object, for name resolution;
+  - one `script` row per script: SCHR fields, SCDA hex, SCTX (latin-1, lossless), variables (SLSD/SCVR), the reference list in order (SCRO resolved to EditorID/type, SCRV), the subrecord order, and its context (quest stage/log entry, dialogue topic).
+- **The block-type table** is found like the command tables: the compiler matches `begin <name>` against CommandInfo names (xOBSE `Hooks_Script.cpp`). The table's opcode field is taken as the block code; the survey checks that against the `begin` names in the source text.
+- **`forge script-decode <plugin|corpus>`** is the decompiler (`tools/forge/script/bytecode.py`). It runs on a corpus bundle or directly on a plugin.
+  - Without options it prints the survey:
+    - the pass rate, **S1 gate = 100%** decoded with no leftover bytes;
+    - failures grouped by kind, with examples;
+    - unknown opcodes;
+    - SCHR consistency;
+    - what the If/Else/ElseIf/Begin jump fields count. It measures every candidate meaning instead of assuming one.
+  - `--show EDID|FormID [--source]` prints one listing.
+  - `--fail N` prints the first N failing listings.
+- **Where the format comes from:** the statement and parameter shapes are xOBSE's `GameAPI.cpp` bytecode reader (HIGH confidence). The expression token format is a HYPOTHESIS that the survey tests.
 
 ## 4. The CS bridge after this
 

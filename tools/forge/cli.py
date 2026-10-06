@@ -9,6 +9,7 @@
     forge kb <command> ...                  knowledge store (forge kb --help)
     forge dump <plugin> <EDID|FormID>       decode a record's subrecords (read-only)
     forge layout-check <plugin> [--sig S]   re-encode every record of a type byte for byte (read-only)
+    forge script-decode <plugin|corpus>     decompile every script's SCDA; survey or --show EDID (read-only)
 
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
@@ -555,6 +556,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "dump":
         from forge.dump import main as dump_main
         return dump_main(argv[1:])
+    if argv and argv[0] == "script-decode":
+        from forge.script.survey import main as decode_main
+        return decode_main(argv[1:])
     if argv and argv[0] == "kb":
         from forge.kb.cli import main as kb_main
         return kb_main(argv[1:])
@@ -579,6 +583,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("kb", help="knowledge store: forge kb --help")
     sub.add_parser("dump", help="decode a record's subrecords: forge dump <plugin> <EDID|FormID>")
     sub.add_parser("layout-check", help="re-encode every SPEL/MGEF (or --sig X) byte for byte")
+    sub.add_parser("script-decode", help="decompile scripts: forge script-decode <plugin|corpus> [--show EDID]")
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)

@@ -21,6 +21,7 @@ USAGE = """forge kb: the knowledge store (forge-kb.sqlite)
   stats                                         build info and counts
   export-vanilla --data <Data> [--out F]        PC: write vanilla_index.jsonl (git-ignored)
   export-commands --exe <Oblivion.exe> [--out F] PC: write vanilla_commands.jsonl (git-ignored)
+  export-scripts --data <Data> [--exe E] [--out F]  PC: write forge-script-corpus.jsonl.gz (git-ignored)
   refresh-sources --xobse D --xedit F --vim F   dev: regenerate kb/data/*.json from upstream
 Add --json to any lookup for agent-readable output. Every row has source + confidence;
 HYPOTHESIS rows are not facts."""
@@ -161,6 +162,16 @@ def main(argv: list[str]) -> int:
             counts = export_commands(Path(opt("--exe")), out)
             _out(counts, as_json, f"wrote {out}\n" + "\n".join(f"  {k}: {v}" for k, v in counts.items()))
             return 0
+        if cmd == "export-scripts":
+            from forge.kb.export import export_scripts
+            from forge.script.commands import DEFAULT_CORPUS
+            out = Path(opt("--out", str(DEFAULT_CORPUS)))
+            exe = opt("--exe")
+            meta = export_scripts(Path(opt("--data")), out, Path(exe) if exe else None)
+            _out(meta, as_json, f"wrote {out}\n  scripts: {meta['scripts']}  forms: {meta['forms']}  "
+                                f"commands: {meta['commands']}\n" +
+                 "\n".join(f"  {k}: {v}" for k, v in meta["plugins"].items()))
+            return 0 if meta["scripts"] else 1
         if cmd == "refresh-sources":
             from forge.kb.sources.refresh import refresh
             x, e, v = opt("--xobse"), opt("--xedit"), opt("--vim")

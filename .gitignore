@@ -23,4 +23,6 @@ forge-kb.sqlite
 forge-kb.building
 vanilla_index.jsonl
 vanilla_commands.jsonl
+forge-script-corpus.jsonl*
+script_log.txt
 kb_log.txt
