@@ -1,0 +1,75 @@
+# TES4Forge spec: rebuild "Rebirth Plus - New Mods Patch.esp" (phase 1 acceptance).
+#
+#   forge spec check specs\rebirth-plus-merge-patch.yaml
+#   forge build specs\rebirth-plus-merge-patch.yaml
+#
+# Paths match the layout the original cloud build used, mapped onto the PC:
+#   _audit\installed_plugins  <- "Prepare mod audit.bat" (copy of the Steam Data plugins)
+#   _audit\inspect            <- prepare_new_mods.ps1 (plugins of the new-mod batch)
+# Unconfirmed on the PC so far: run `forge spec check` first and fix any NOT FOUND line,
+# here or with --set NAME=VALUE.
+forge_spec: 1
+name: rebirth-plus-new-mods-patch
+kind: merge_patch
+intent: >
+  Compatibility patch for the Oct 2026 new-mod batch on Oblivion Rebirth+. Merges NPC, quest,
+  package, cell and dialogue edits from the new mods with Rebirth+ (OCO faces, level caps, UOP
+  fixes), restores terrain where camps clash, and ports the Legion Outposts / Thieves Grotto fix
+  onto Thieves Grotto V3. Load last.
+
+vars:
+  STEAM_DATA: "C:/Program Files (x86)/Steam/steamapps/common/Oblivion/Data"
+  AUDIT: "../_audit"
+  PLUGINS_TXT: "${env:LOCALAPPDATA}/Oblivion/Plugins.txt"
+
+output:
+  plugin: "Rebirth Plus - New Mods Patch.esp"
+  version: "1.0"
+  # dir defaults to forge-builds/<name> (git-ignored). Never a Data or Vortex folder.
+  install_notes:
+    - Install through Vortex as its own mod and load it LAST.
+    - Rebuild it (forge build) whenever a merged mod is added, removed or updated.
+
+inputs:
+  - {id: oblivion-esm, path: "${STEAM_DATA}/Oblivion.esm", permission: REQUIRES_ORIGINAL_DOWNLOAD, role: master}
+  - {id: rebirth-plus-plugins, path: "${AUDIT}/installed_plugins", permission: PATCH_ONLY, role: source,
+     note: "Patch copies merged records from these; users must own every master."}
+  - {id: new-mod-batch, path: "${AUDIT}/inspect", permission: PATCH_ONLY, role: source}
+  - {id: legion-thieves-patch, path: "${AUDIT}/inspect/LegionOutposts-ThievesGrotto Patch.esp",
+     permission: PATCH_ONLY, role: source, note: "Ported onto Thieves Grotto V3; the official file is not installed."}
+
+dependencies:
+  masters: computed           # the writer lists every file the merged records reference
+  runtime: []
+compatibility_targets:
+  - Oblivion Rebirth+ (Steam copy, Vortex, ~186 plugins)
+
+merge_patch:
+  config: ../tools/merge-patch/build_cfg.json
+  vanilla: "${STEAM_DATA}/Oblivion.esm"
+  installed_dir: "${AUDIT}/installed_plugins"
+  plugins_txt: "${PLUGINS_TXT}"
+  # relative paths inside build_cfg.json (extra_paths, port_patch) resolve against workdir
+  workdir: "${AUDIT}/inspect"
+  new_mod_paths: []            # pin a file here when a name is ambiguous under new_mod_search
+  new_mod_search:
+    - "${AUDIT}/inspect/**"
+  extra_plugins:
+    ElsweyrAnequina.esp: "${AUDIT}/installed_plugins/ElsweyrAnequina.esp"
+  insert_after:
+    "Oblivion Citadel Door Fix.esp": DLCShiveringIsles.esp
+  author: Claude for Yuri
+
+lint:
+  data: "${STEAM_DATA}"        # masters must exist where the game will load the patch
+
+expect:
+  # The legacy builder's record order depended on Python's hash seed, so the shipped file
+  # can't be reproduced byte-for-byte. This check needs the same records and header.
+  same_records_as: "${STEAM_DATA}/Rebirth Plus - New Mods Patch.esp"
+
+test_plan:
+  - forge build passes (round-trip 0 mismatches, lint 0 errors, same records as the shipped patch).
+  - Load in game on the Rebirth+ profile; no CTD at main menu or on loading a save.
+  - coc to a merged interior cell from patch_report.json; lighting and names match the merge.
+  - Visit cells 51,-3 and 51,-4 (Mannimarco Resurrection site): no camp objects, no terrain seams.

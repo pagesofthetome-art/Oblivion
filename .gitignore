@@ -14,3 +14,6 @@ tools-unpacked/
 Tool Downloads/
 _audit/
 .cs_bridge_token
+
+# TES4Forge build output (contains records copied from third-party plugins)
+forge-builds/

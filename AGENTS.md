@@ -26,6 +26,7 @@ You are an expert Oblivion (TES IV, 2006, GOG GOTY Deluxe v1.2.0.416) modder wor
 | `Oblivion\oblivion_bridge.py` | `list` plugins, `backup <plugin>`, `launch` CS (its `-master/-plugin` args are unverified). |
 | `TesIvedit\TES4Edit 4.1.5f\` | xEdit for Oblivion. `Edit Scripts\` has built-in scripts, `xEditAPI.pas`, `Texconv.exe`, LODGen. |
 | `script extender\` | Original xOBSE 22.13 download. **Installed 2026-10-04** into `Oblivion\` (`obse_loader.exe`, `obse_1_2_416.dll`, `obse_editor_1_2.dll`, `obse_steam_loader.dll`, `Data\OBSE\obse.ini`). Launch the game with `Oblivion\obse_loader.exe` and the CS with `obse_loader.exe -editor` so OBSE scripts run and compile. |
+| `tools\forge\`, `forge.cmd`, `specs\` | **TES4Forge**: one CLI over the tools below. Spec file → build → round-trip + lint → build log with hashes → Vortex zip. Start with `forge caps` and `forge spec check <spec>`. See `tools\forge\README.md` and `docs\forge-phase-checklist.md`. Output goes to `forge-builds\` (git-ignored), never a Data or Vortex folder. |
 | `tools\modlint.py` | **Read-only plugin inspector, linter, conflict checker** (pure Python). See below. |
 | `tools\tes4_plugin.py` | TES4 binary parser library used by modlint. |
 | `tools\xedit_run.py` | Headless TES4Edit runner: install/run `Agent_*` scripts, QAC with backup. |

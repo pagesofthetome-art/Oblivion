@@ -1,0 +1,4 @@
+#!/bin/sh
+# TES4Forge launcher for Linux/macOS shells (Windows: forge.cmd)
+here="$(cd "$(dirname "$0")" && pwd)"
+PYTHONPATH="$here/tools${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m forge "$@"
