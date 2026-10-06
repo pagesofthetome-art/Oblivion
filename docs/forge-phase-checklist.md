@@ -92,7 +92,9 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] **S2–S6: the compiler.** `forge script-check` gives 99.86% byte-identical SCDA on the vanilla corpus (10,705/10,720); the other 15 are stale data or rare aliases (plan §3d). The reference-list ordering rule matches every identical script.
 - [x] Confirmation of `script-check` on the PC (handoff 30): corpus 99.86%, Oblivion.esm read directly 99.95%, same failures. S6 signed off.
 - [x] `scripts:` in `kind: plugin` specs: forge compiles them into SCPT records and attaches them by EditorID (`specs/ak-ember-ward.yaml`, cloud sha256 `9de0ace3…`).
-- [ ] PC build of `ak-ember-ward` matches that sha256 (handoff 31).
+- [x] PC build of `ak-ember-ward` matches that sha256 (handoff 31).
+- [x] Track E (playtest harness) merged into `forge/phase3-plugin` (Yuri, 2026-10-06). New: `results: save` / `--results save` (result-save globals only, no PrintToFile), and `ref: none` checks.
+- [ ] **3c first in-game test:** Ember Ward in ICArena (handoff 32). Spec sha256 `7ec8a705…` (adds the `AKEmberPulses` global).
 - [ ] S7: OBSE syntax (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
 - [ ] ~~3b: `script.compile` through the CS bridge~~ replaced by forge's own compiler (above); the CS is an optional cross-check only.

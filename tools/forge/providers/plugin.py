@@ -56,6 +56,12 @@ from forge import records as R  # noqa: E402
 from patchlib import NRec, Writer  # noqa: E402
 
 FIRST_ID = 0x000800
+# top-level group order of Oblivion.esm (records are written group by group in this order)
+GROUP_ORDER = ["GMST", "GLOB", "CLAS", "FACT", "HAIR", "EYES", "RACE", "SOUN", "SKIL", "MGEF", "SCPT", "LTEX",
+               "ENCH", "SPEL", "BSGN", "ACTI", "APPA", "ARMO", "BOOK", "CLOT", "CONT", "DOOR", "INGR", "LIGH",
+               "MISC", "STAT", "GRAS", "TREE", "FLOR", "FURN", "WEAP", "AMMO", "NPC_", "CREA", "LVLC", "SLGM",
+               "KEYM", "ALCH", "SBSP", "SGST", "LVLI", "WTHR", "CLMT", "REGN", "CELL", "WRLD", "DIAL", "QUST",
+               "IDLE", "PACK", "CSTY", "LSCR", "LVSP", "ANIO", "WATR", "EFSH"]
 EFFECT_RECORDS = {"SPEL", "ENCH", "ALCH", "INGR", "SGST"}
 META_KEYS = {"sig", "edid", "flags", "effects", "comment", "note"}
 
@@ -402,7 +408,7 @@ def build(spec, ids_path: Path, kb_db: Path | None = None, commands_path: Path |
     changed = allocate(ids, edids)
     resolve = Resolver(plugin, ids, kb_db)
     recs = []
-    if scripts:      # SCPT comes before SPEL and the object groups in vanilla's group order
+    if scripts:
         names = _ScriptNames(plugin, ids, entries, scripts, kb_db)
         recs += build_scripts(scripts, names, plugin, ids, commands_path)
     recs += [build_record(e, plugin, ids, resolve) for e in entries]
@@ -411,7 +417,8 @@ def build(spec, ids_path: Path, kb_db: Path | None = None, commands_path: Path |
     w = Writer(plugin, masters + [plugin])
     for m in masters:
         w.used.add(m.lower())          # declared masters stay even if nothing references them
-    for r in recs:
+    rank = {sig: i for i, sig in enumerate(GROUP_ORDER)}
+    for r in sorted(recs, key=lambda r: rank.get(r.sig, len(GROUP_ORDER))):   # stable: spec order within a group
         w.add(r)
     data = bytearray(w.build(author=str(spec.section("output").get("author", "Claude for Yuri")),
                              desc=str(spec.raw.get("intent", "")).strip()))

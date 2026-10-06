@@ -4,6 +4,7 @@ Source: the spec's `test_plan` (or a JSON/YAML file given with --manifest):
 
     test_plan:
       cell: arena                  # arena | street | open | <vanilla InteriorEditorID> | marker:<Map marker>
+      results: save                # optional: result-save globals only (no PrintToFile lines at all)
       steps:
         - addspell: ForgeExampleFireboltSpell
         - check: {ref: player, fn: HasSpell, args: [ForgeExampleFireboltSpell], expect: "== 1"}
@@ -128,7 +129,12 @@ def parse_plan(plan) -> dict:
                 raise ManifestError(f"step {st['n']}: ${m.group(2)[1:]} is used before a check saves it")
             if st.get("save"):
                 saved.add(st["save"])
-    return {"cell": plan.get("cell"), "steps": steps, "notes": [str(n) for n in plan.get("notes") or []]}
+    results = str(plan.get("results") or "auto").lower()
+    if results not in ("auto", "save"):
+        raise ManifestError("test_plan.results must be 'auto' (log file, then the result save) or 'save' "
+                            "(result-save globals only)")
+    return {"cell": plan.get("cell"), "steps": steps, "notes": [str(n) for n in plan.get("notes") or []],
+            "results": results}
 
 
 # ---------------------------------------------------------------- forms
@@ -235,7 +241,10 @@ def _line(st: dict, forms: FormTable) -> list[str]:
         return [f"fw {forms.form(st['form'])}"]
     if op == "console":
         return [st["command"]]
-    ref = _ref(st.get("ref", "player"), forms)
+    if op == "check" and str(st.get("ref", "player")).lower() == "none":
+        ref = ""                                       # a function without a calling reference (GetGlobalValue)
+    else:
+        ref = _ref(st.get("ref", "player"), forms)
     if op in ("additem", "removeitem"):
         return [f"{ref}.{op} {forms.form(st['form'])} {st.get('count', 1)}"]
     if op == "equip":
@@ -246,7 +255,7 @@ def _line(st: dict, forms: FormTable) -> list[str]:
         return [f"{ref}.{op} {st['av']} {st['value']}"]
     if op == "check":
         args = " ".join(_arg(a, forms) for a in st["args"])
-        return [f"{ref}.{st['fn']} {args}".rstrip()]
+        return [f"{ref}.{st['fn']} {args}".rstrip() if ref else f"{st['fn']} {args}".rstrip()]
     raise ManifestError(f"cannot compile {op}")
 
 
@@ -256,8 +265,8 @@ def _arg(a: str, forms: FormTable) -> str:
         return a
     a = forms.aliases.get(a.lower(), a)
     hit = forms.names.get(a.lower())
-    if hit and hit[2] == "CELL":
-        return a                                       # GetInCell & co. take the cell's EditorID
+    if hit and hit[2] in ("CELL", "GLOB"):
+        return a                                       # GetInCell & co. take the cell's EditorID; globals too
     if hit and hit[2] in ("REFR", "ACHR", "ACRE"):
         return a                                       # references by EditorID
     try:
@@ -276,28 +285,33 @@ def marker(*parts) -> str:
     return "FORGE|" + "|".join(str(p) for p in parts)
 
 
-def _say(text: str) -> list[str]:
+def _say(text: str, file_log: bool = True) -> list[str]:
     """On screen (printc) and into the log file (xOBSE PrintToFile; run 6: scof doesn't exist)."""
-    return [f'printc "{text}"', f'PrintToFile "{LOG_NAME}" "{text}%r"']           # %r: OBSE line break
+    return [f'printc "{text}"'] + ([f'PrintToFile "{LOG_NAME}" "{text}%r"'] if file_log else [])   # %r: OBSE line break
 
 
-def _value(global_: str, label: str, expr: str) -> list[str]:
+def _value(global_: str, label: str, expr: str, file_log: bool = True) -> list[str]:
     """Store a value in a result global (also read back from the result save) and log it."""
-    return [f"set {global_} to {SENTINEL}", f"set {global_} to {expr}",
-            f'PrintToFile "{LOG_NAME}" "{label} >> %.2f%r" {global_}']
+    return [f"set {global_} to {SENTINEL}", f"set {global_} to {expr}"] + (
+        [f'PrintToFile "{LOG_NAME}" "{label} >> %.2f%r" {global_}'] if file_log else [])
 
 
 def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: str, spec: str | None,
-          run_id: str | None = None) -> dict:
+          run_id: str | None = None, results: str | None = None) -> dict:
     """Return the manifest dict, including the compiled batch chunks.
+
+    results: "save" = result-save globals only, no PrintToFile in any batch (the plan's
+    `results:` key, or the --results option, which wins).
 
     location: vanilla.Location.to_dict(): boot command, optional moveto ref, cell/world for the probe.
     bring: [(ref EditorID, dx, dy, dz)] test actors moved next to the player.
     """
     run_id = run_id or secrets.token_hex(4)
+    route = (results or plan.get("results") or "auto").lower()
+    fl = route != "save"
     chunks: list[dict] = [{"wait_before": 0.0, "lines": []}]
     stamp = run_stamp(run_id)
-    head = _say(marker("BEGIN", run_id)) + [f"set ForgeRunStamp to {stamp}"]
+    head = _say(marker("BEGIN", run_id), fl) + [f"set ForgeRunStamp to {stamp}"]
     if location.get("moveto"):
         head.append(f"player.moveto {location['moveto']}")
     if location.get("setpos"):
@@ -309,10 +323,10 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
     for role, lines in PREPARE.items():
         if role.lower() in forms.aliases:
             head += [f"{_ref(role, forms)}.{l}" for l in lines]
-    head += _say(marker("CELL", location.get("cell_edid") or location.get("world_edid")))
+    head += _say(marker("CELL", location.get("cell_edid") or location.get("world_edid")), fl)
     probe = (f"GetInCell {location['cell_edid']}" if location.get("cell_edid")
              else f"GetInWorldspace {location['world_edid']}")
-    head += _value("ForgeRInPlace", probe.split()[0], f"player.{probe}")
+    head += _value("ForgeRInPlace", probe.split()[0], f"player.{probe}", fl)
     chunks[0]["lines"] += head
     result_globals: dict[str, str] = {}
     checks = [st for st in plan["steps"] if st["do"] == "check"]
@@ -327,9 +341,9 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         if st["do"] == "check":
             g = f"ForgeR{len(result_globals) + 1:02d}"
             result_globals[str(st["n"])] = g
-            lines = _value(g, st["fn"], lines[0])
-        chunks[-1]["lines"] += _say(marker("STEP", st["n"], st["do"])) + lines
-    chunks[-1]["lines"] += _say(marker("END", run_id)) + [
+            lines = _value(g, st["fn"], lines[0], fl)
+        chunks[-1]["lines"] += _say(marker("STEP", st["n"], st["do"]), fl) + lines
+    chunks[-1]["lines"] += _say(marker("END", run_id), fl) + [
         f"set ForgeRunDone to {stamp}", f"save {RESULT_SAVE}",
         'message "Forge: checks done. Play on, quit the game when you are ready."']
     for i, c in enumerate(chunks, 1):
@@ -339,7 +353,7 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         "forge_playtest": MANIFEST_VERSION, "run_id": run_id, "spec": spec, "plugin": plugin,
         "cell": location.get("cell_edid") or location.get("world_edid"), "location": location,
         "load_order": forms.load_order, "log": LOG_NAME, "steps": plan["steps"], "notes": plan.get("notes", []),
-        "results": {"save": RESULT_SAVE, "stamp": stamp, "probe": probe, "checks": result_globals},
+        "results": {"save": RESULT_SAVE, "stamp": stamp, "probe": probe, "checks": result_globals, "route": route},
         "chunks": chunks,
     }
 

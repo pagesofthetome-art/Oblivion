@@ -76,3 +76,7 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - the forge-made actors are unused;
   - 90 tests.
 - **Waiting on:** PC run 7. The goal is a PASS (the fire bolt lowers the target's health, the target survives).
+- **Merged into `forge/phase3-plugin`** (Yuri, 2026-10-06), before run 7 passed, so Ember Ward can be the first in-game test. It's self-cast and needs no actors.
+  - New: `results: save` / `--results save` (no PrintToFile in the batches; the result save decides).
+  - New: `ref: none` checks (`GetGlobalValue`); globals stay EditorIDs in check arguments.
+  - 94 tests. Handoff: `docs/32-forge-ember-ward-playtest-pc-handoff.md`.

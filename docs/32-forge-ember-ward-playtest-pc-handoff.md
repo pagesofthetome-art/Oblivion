@@ -1,27 +1,3 @@
-# CURRENT PC HANDOFF (save this file and give it to the PC Claude)
-
-> This file always holds the current task. It combines the start-here rules from `docs/PC-AGENT.md` with the current handoff (`docs/32-forge-ember-ward-playtest-pc-handoff.md`).
-
----
-
-## How this works
-
-1. Yuri passes you a handoff file (or points you at this table). Each handoff has the same parts: goal, steps, failure table, rules, and what to report.
-2. Do exactly the steps. If something fails, **report it; don't work around it** by editing tests, curated data or ranking code, or by touching files the handoff doesn't name.
-3. End with the "Report back" section. Yuri pastes your report into the cloud session, which answers with the next handoff and updates the table above.
-
-## Standing rules (from `AGENTS.md` and the forge prompt)
-
-- **Commits:** never commit Bethesda-derived data or local outputs: `vanilla_index.jsonl`, `vanilla_commands.jsonl`, `forge-kb.sqlite`, `kb_log.txt`, `forge-script-corpus.jsonl.gz`, `script_log.txt`, `decode_log.txt`, `check_log.txt`, `forge-builds\`, `_audit\`.
-- **The GOG copy** (`Oblivion\`) is the clean dev install. **The Steam copy** is the Rebirth+ play setup. Touch the Steam copy only to deploy a finished, packaged mod through Vortex, and only when a handoff says so.
-- **Research mods** are reference only: never in Vortex or either Data folder.
-- **Protected files:** never modify `Oblivion.esm`, official DLC, or other authors' plugins.
-- **No game or CS launches** and no mouse/keyboard driving unless the handoff asks for it. Never while the game runs.
-- **Playtests (Track E, merged):** forge never closes the game; Yuri quits. Restore runs after the game exits (`forge playtest restore` if in doubt). Never touch Rebirth+ (Steam copy, Vortex, the real Plugins.txt/ini).
-- **Bridge token:** never print or copy `Oblivion\.cs_bridge_token`.
-
----
-
 # Handoff 32: first in-game test, Ember Ward in the Arena (`forge playtest`, results from the save)
 
 **From:** the cloud Claude session (2026-10-06).

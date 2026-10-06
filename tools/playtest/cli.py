@@ -32,6 +32,8 @@ def register(sub) -> None:
     p.add_argument("--dry-run", action="store_true", help="build, swap and stage the profile, then restore; no launch")
     p.add_argument("--no-companion", action="store_true", help="do not start Controller\\oblivion_controller.py")
     p.add_argument("--bright", action="store_true", help="full-bright lighting in the test game (dark places)")
+    p.add_argument("--results", choices=["auto", "save"],
+                   help="save = results only from the result save's globals (no PrintToFile in the batches)")
     p.add_argument("--boot-timeout", type=float, default=120.0)
     p.add_argument("--hang-seconds", type=float, default=20.0, help="confirmed freeze this long = kill the test game")
     p.add_argument("--json", action="store_true")
@@ -106,7 +108,7 @@ def cmd_playtest(a) -> int:
         return 0
     opts = runner.Options(cell=a.cell, manifest=Path(a.manifest) if a.manifest else None, dry_run=a.dry_run,
                           kill_on_freeze=a.kill_on_freeze, boot_timeout=a.boot_timeout, hang_seconds=a.hang_seconds,
-                          companion=not a.no_companion, bright=a.bright,
+                          companion=not a.no_companion, bright=a.bright, results=a.results,
                           log=(lambda s: None) if a.json else print)
     try:
         res = runner.run(a.target, opts, m)

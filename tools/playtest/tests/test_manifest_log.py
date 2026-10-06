@@ -70,6 +70,54 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual([c["command"] for c in m["chunks"]], ["bat fpt1", "bat fpt2"])
         self.assertEqual(m["results"]["checks"], {"2": "ForgeR01", "3": "ForgeR02", "6": "ForgeR03"})
 
+    def test_save_only_route_writes_no_printtofile(self):
+        plan = mf.parse_plan(dict(PLAN, results="save"))
+        m = mf.build(plan, forms(), location=LOC, bring=BRING, plugin="ForgeExampleFirebolt.esp",
+                     spec="example-firebolt", run_id="abcd1234")
+        lines = [l for c in m["chunks"] for l in c["lines"]]
+        self.assertFalse([l for l in lines if "printtofile" in l.lower() or "scof" in l.lower()])
+        self.assertIn("set ForgeR01 to player.HasSpell 02000800", lines)
+        self.assertIn("save ForgePlaytestResult", lines)
+        self.assertEqual(m["results"]["route"], "save")
+        # the --results option beats the plan
+        m2 = mf.build(mf.parse_plan(PLAN), forms(), location=LOC, bring=BRING, plugin="x.esp", spec=None,
+                      run_id="abcd1234", results="save")
+        self.assertFalse([l for c in m2["chunks"] for l in c["lines"] if "printtofile" in l.lower()])
+        with self.assertRaises(mf.ManifestError):
+            mf.parse_plan(dict(PLAN, results="scof"))
+
+    def test_check_without_a_calling_reference(self):
+        ft = forms()
+        ft.add_plugin_records("ForgeExampleFirebolt.esp", [("FxPulses", 0x01000801, "GLOB")])
+        plan = mf.parse_plan({"steps": [{"check": {"ref": "none", "fn": "GetGlobalValue", "args": ["FxPulses"],
+                                                   "expect": ">= 3"}}]})
+        m = mf.build(plan, ft, location=LOC, bring=BRING, plugin="ForgeExampleFirebolt.esp", spec=None,
+                     run_id="abcd1234")
+        self.assertIn("set ForgeR01 to GetGlobalValue FxPulses", m["chunks"][0]["lines"])
+
+    def test_ember_ward_plan_compiles(self):
+        import yaml
+        spec = Path(__file__).resolve().parents[3] / "specs" / "ak-ember-ward.yaml"
+        plan = mf.parse_plan(yaml.safe_load(spec.read_text(encoding="utf-8"))["test_plan"])
+        self.assertEqual((plan["cell"], plan["results"]), ("arena", "save"))
+        ft = forms()
+        ft.add_plugin_records("AKEmberWard.esp", [("AKEmberWard", 0x01000800, "SPEL"),
+                                                  ("AKEmberPulses", 0x01000802, "GLOB")])
+        ft.load_order.append("AKEmberWard.esp")
+        ft.index["akemberward.esp"] = len(ft.load_order) - 1
+        ft.masters["akemberward.esp"] = ["Oblivion.esm"]
+        m = mf.build(plan, ft, location=LOC, bring=[], plugin="AKEmberWard.esp", spec="ak-ember-ward",
+                     run_id="abcd1234")
+        lines = [l for c in m["chunks"] for l in c["lines"]]
+        sid = mf.console_id((ft.index["akemberward.esp"] << 24) | 0x800)
+        self.assertIn(f"player.addspell {sid}", lines)
+        self.assertIn(f"player.cast {sid} player", lines)
+        self.assertIn("set ForgeR02 to GetGlobalValue AKEmberPulses", lines)
+        self.assertIn(f"set ForgeR03 to player.IsSpellTarget {sid}", lines)
+        self.assertEqual([c["wait_before"] for c in m["chunks"]], [0.0, 2.0, 13.0, 25.0])
+        self.assertFalse([l for l in lines if "printtofile" in l.lower() or "scof" in l.lower()])
+        self.assertEqual(len(m["results"]["checks"]), 6)
+
     def test_roles_resolve_to_real_vanilla_references(self):
         ft = forms()
         ft.alias("TestTarget", "SomeBeggarRef", "Oblivion.esm", 0x0001E1A5)

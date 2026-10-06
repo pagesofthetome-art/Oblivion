@@ -105,7 +105,8 @@ The boot itself:
      is compiled as a one-line script, and scripts name persistent references that way. Two other
      forms don't work in a batch: `<FormID>.Command` (run 5: "Script command not found") and `prid`
      (run 6: the next batch line ignores the selection).
-   - Results take two routes:
+   - Results take two routes (or only the second with `results: save` in the plan / `--results save`,
+     which leaves `PrintToFile` out of every batch):
      1. Each check value goes into a result global from `ForgeTestCells.esp`. The global is first
         set to a sentinel, so a failed line never counts as a value.
      2. xOBSE's `PrintToFile` writes the markers and values to `forge_test.log`; `scof` doesn't exist

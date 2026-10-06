@@ -53,6 +53,7 @@ class Options:
     hang_seconds: float = 20.0
     companion: bool = True
     bright: bool = False                  # bFullBrightLighting=1 in the test ini (dark places)
+    results: str | None = None            # "save": result-save globals only, no PrintToFile (beats the plan)
     log: object = print
 
 
@@ -372,7 +373,8 @@ def _collect_results(m: profile.Machine, man: dict, prep: Prepared, run_dir: Pat
     """After the game has exited: the PrintToFile log (wherever xOBSE put it), else the result
     globals from the ForgePlaytestResult save. Both are removed from the game/save folders."""
     out: dict = {}
-    found = find_run_log(m, f"FORGE|BEGIN|{man['run_id']}", since)
+    save_only = man["results"].get("route") == "save"
+    found = None if save_only else find_run_log(m, f"FORGE|BEGIN|{man['run_id']}", since)
     if found and not any(">>" in l for l in testlog.read_lines(found)):
         out["log_without_values"] = str(found)            # markers only: let the result save decide
         found = None
@@ -437,7 +439,8 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             lo = prof.apply(prep, opts)
             forms = _forms(prep, m, lo)
             man = mf.build(t.plan, forms, location=loc.to_dict(), bring=testcells.BRING.get(loc.key, []),
-                           plugin=t.plugin.name if t.plugin else None, spec=t.spec_name)
+                           plugin=t.plugin.name if t.plugin else None, spec=t.spec_name, results=opts.results)
+            log(f"results: {'result-save globals only (no PrintToFile)' if man['results']['route'] == 'save' else 'log file, then the result save'}")
             mf.save(man, run_dir / "playtest_manifest.json")
             for name, data in _batch_files(man["chunks"]):
                 prof.sess.stage(m.game_dir / name, data=data)

@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/31-forge-ember-ward-pc-handoff.md`](31-forge-ember-ward-pc-handoff.md): build `specs/ak-ember-ward.yaml`, the first spec with a script forge compiles itself; the sha256 must match the cloud's. No game/CS, nothing deployed. Handoff 27 stays optional. |
+| **Do now** | [`docs/32-forge-ember-ward-playtest-pc-handoff.md`](32-forge-ember-ward-playtest-pc-handoff.md): the first in-game test. `forge playtest specs\ak-ember-ward.yaml --cell arena --results save`; Yuri presses Continue and quits himself. Track E is merged into this branch. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | §3 of handoff 31 |
+| **Send back** | §3 of handoff 32, as `forge-builds\playtest\handoff\HANDOFF-to-cloud-ember1.md` |
 
 ## How this works
 
@@ -25,6 +25,7 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 - **Research mods** are reference only: never in Vortex or either Data folder.
 - **Protected files:** never modify `Oblivion.esm`, official DLC, or other authors' plugins.
 - **No game or CS launches** and no mouse/keyboard driving unless the handoff asks for it. Never while the game runs.
+- **Playtests (Track E, merged):** forge never closes the game; Yuri quits. Restore runs after the game exits (`forge playtest restore` if in doubt). Never touch Rebirth+ (Steam copy, Vortex, the real Plugins.txt/ini).
 - **Bridge token:** never print or copy `Oblivion\.cs_bridge_token`.
 
 ## History
@@ -46,4 +47,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 28 | `28-forge-script-corpus-pc-handoff.md`: script corpus export + decompiler survey (S0+S1) | done: 26,624 scripts, 2.3 MB corpus uploaded; first survey 89.6%, raised to 100% in the cloud |
 | 29 | `29-forge-decompiler-confirm-pc-handoff.md`: confirm the 100% decode on the PC | done: corpus, Oblivion.esm, Knights.esp all 100%; S1 signed off |
 | 30 | `30-forge-script-check-pc-handoff.md`: the compiler against vanilla (`script-check`) | done: corpus 10,705/10,720 (99.86%), Oblivion.esm 9,641/9,646 (99.95%); S6 signed off |
-| 31 | `31-forge-ember-ward-pc-handoff.md`: first spec with a compiled script (`ak-ember-ward`) | **pending** |
+| 31 | `31-forge-ember-ward-pc-handoff.md`: first spec with a compiled script (`ak-ember-ward`) | done: sha256 matched the cloud, lint clean, the decode matches the source |
+| 32 | `32-forge-ember-ward-playtest-pc-handoff.md`: Ember Ward in game (ICArena, result-save globals) | **pending** |

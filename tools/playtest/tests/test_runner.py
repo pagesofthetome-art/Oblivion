@@ -93,6 +93,16 @@ class RunnerTests(MachineCase):
         self.assertEqual(res["save_values"]["ForgeRInPlace"], 1.0)
         self.assertRealSetupUntouched()
 
+    def test_save_only_route_reads_the_result_save_even_with_a_log(self):
+        self.with_save()
+        p = self.fake()                                    # a PrintToFile-capable game: still ignored
+        res = runner.run(EXAMPLE, self.opts(results="save"), self.m, p)
+        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
+        self.assertIn("result save", res["log_source"])
+        self.assertFalse([h for h in p.game.history if "printtofile" in h.lower()])
+        self.assertFalse((self.m.game_dir / "forge_test.log").exists())
+        self.assertRealSetupUntouched()
+
     def test_a_log_with_markers_only_falls_back_to_the_result_save(self):
         self.with_save()
         res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="conscribe"))

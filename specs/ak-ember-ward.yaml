@@ -7,8 +7,9 @@ name: ak-ember-ward
 kind: plugin
 intent: >
   Ember Ward: a Novice Restoration lesser power. For 30 seconds a script counts "ember pulses",
-  one every 3 seconds, and reports them on screen; it changes nothing else. Tests forge's own
-  script compiler end to end.
+  one every 3 seconds, reports them on screen and keeps a running total in the global
+  AKEmberPulses; it changes nothing else. Tests forge's own script compiler end to end, and is
+  the first in-game playtest (self-cast: no test actors needed).
 
 vars:
   GOG_DATA: "C:/Users/Shadow/Desktop/Games/Oblivion/Data"
@@ -44,6 +45,7 @@ scripts:
         set timer to timer + GetSecondsPassed
         if timer >= 3
           set pulses to pulses + 1
+          set AKEmberPulses to AKEmberPulses + 1
           Message "Ember pulse %.0f", pulses
           set timer to 0
         endif
@@ -54,6 +56,10 @@ scripts:
       end
 
 records:
+  - sig: GLOB
+    edid: AKEmberPulses              # running total of pulses, read by the playtest
+    FNAM: 115                        # 's' = short
+    FLTV: 0
   - sig: SPEL
     edid: AKEmberWard
     FULL: Ember Ward
@@ -69,9 +75,23 @@ lint:
 
 expect:
   # Built in the cloud with the PC's exported command table (2026-10-06); the PC build must match.
-  sha256: 9de0ace3855499f56bea3db1e5bafb490240259e66685c8cfcf7d39d1688a63b
+  sha256: 7ec8a70511172c253007a55c0d5543bfe732cb5cf55410c138a36de383847b71
 
 test_plan:
-  - "forge build: SCPT + SPEL, round-trip 0 mismatches, lint 0 errors."
-  - "forge script-decode on the built plugin: 100%, and the listing reads like the source."
-  - "In game (test profile, phase 3c): player.addspell <load-order id>; cast: the start message, 'Ember pulse 1'..'10' every 3 s, then 'fades after 10 pulses'."
+  cell: arena
+  results: save                      # result-save globals only: no PrintToFile, no scof
+  steps:
+    - addspell: AKEmberWard
+    - check: {ref: player, fn: HasSpell, args: [AKEmberWard], expect: "== 1"}
+    - check: {ref: none, fn: GetGlobalValue, args: [AKEmberPulses], expect: "== 0"}
+    - cast: {caster: player, spell: AKEmberWard, target: player}
+    - wait: 2
+    - check: {ref: player, fn: IsSpellTarget, args: [AKEmberWard], expect: "== 1"}
+    - wait: 13
+    - check: {ref: none, fn: GetGlobalValue, args: [AKEmberPulses], expect: ">= 3"}
+    - wait: 25
+    - check: {ref: player, fn: IsSpellTarget, args: [AKEmberWard], expect: "== 0"}
+    - check: {ref: none, fn: GetGlobalValue, args: [AKEmberPulses], expect: ">= 8"}
+  notes:
+    - "forge build: SCPT + GLOB + SPEL, round-trip 0 mismatches, lint 0 errors."
+    - "On screen during the run: the start message, 'Ember pulse 1'..'10' every 3 s, then 'fades after 10 pulses'."
