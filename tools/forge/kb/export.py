@@ -59,7 +59,9 @@ def export_vanilla(data: Path, out: Path, plugins: list[str] | None = None) -> d
                     "override": p.is_override(r), "deleted": r.is_deleted,
                 }, ensure_ascii=False) + "\n")
                 n += 1
-            counts[p.name] = n
+            # name from the file, not the loop: a record-less stub (GOG's DLCShiveringIsles.esp)
+            # yields nothing and would otherwise overwrite the previous plugin's count
+            counts[path.name] = n
     return counts
 
 

@@ -59,7 +59,9 @@ CREATE TABLE crash_signatures (id TEXT PRIMARY KEY, title TEXT, symptoms TEXT, c
     components TEXT, source TEXT, confidence TEXT);
 CREATE TABLE test_results (id TEXT PRIMARY KEY, test TEXT, subject TEXT, result TEXT, date TEXT,
     evidence TEXT, source TEXT, confidence TEXT);
-CREATE VIRTUAL TABLE fts USING fts5(kind, key, title, body, tokenize='porter unicode61');
+CREATE VIRTUAL TABLE fts USING fts5(kind, key, title, notes, body, tokenize='porter unicode61');
+-- vanilla forms get their own index so 58k EditorIDs can't skew ranking for everything else
+CREATE VIRTUAL TABLE fts_forms USING fts5(key, title, body, tokenize='porter unicode61');
 """
 
 
@@ -113,7 +115,7 @@ def load_records(db, fts):
         body = (f"{name} record. Subrecords in order: " + " ".join(s["sig"] for s in r["subrecords"])
                 + ". FormID subrecords: " + ", ".join(dict.fromkeys(fid_list)) + ". Required: "
                 + ", ".join(s["sig"] for s in r["subrecords"] if s["required"]))
-        fts.append(("record", sig, f"{sig} {name}", body))
+        fts.append(("record", sig, f"{sig} {name}", "", body))
     return len(schemas), n_sub
 
 
@@ -190,9 +192,9 @@ def load_functions(db, fts, commands_path: Path | None):
                        (r["name"], i, p["name"], p["type"], int(bool(p["optional"])), r["source"], r["confidence"]))
         ptxt = " ".join(f"{p['name']} {p['type']}" for p in r["params"])
         origin = "OBSE function" if r["origin"] == "obse" else "vanilla script function"
-        body = " ".join(x for x in (camel_words(r["name"]), origin, r["category"], r["alias"], summary,
-                                     (cu or {}).get("params_note", ""), ptxt, r["help"]) if x)
-        fts.append(("function", r["name"], f"{r['name']} {camel_words(r['name'])}", body))
+        notes = " ".join(x for x in (summary, (cu or {}).get("params_note", "")) if x)
+        body = " ".join(x for x in (camel_words(r["name"]), origin, r["category"], r["alias"], ptxt, r["help"]) if x)
+        fts.append(("function", r["name"], f"{r['name']} {camel_words(r['name'])}", notes, body))
     return len(rows)
 
 
@@ -244,8 +246,9 @@ def load_techniques(db, fts, func_names: list[str]):
                           ",".join(used), perm, "docs/14-research-mods-index.md (our analysis of the archives)",
                           url, "HIGH_CONFIDENCE"))
         fts.append(("technique", str(cur.lastrowid), r["specimen"],
-                    " ".join(x for x in (r["technique"], r.get("notes", ""), r.get("runtime_needs", ""),
-                                         " ".join(used), " ".join(camel_words(u) for u in used)) if x)))
+                    " ".join(x for x in (r["technique"], r.get("notes", "")) if x),
+                    " ".join(x for x in (r.get("runtime_needs", ""), " ".join(used),
+                                         " ".join(camel_words(u) for u in used)) if x)))
     return len(rows)
 
 
@@ -255,16 +258,16 @@ def load_curated_tables(db, fts):
         db.execute("INSERT INTO crash_signatures VALUES (?,?,?,?,?,?,?,?)",
                    (c["id"], c["title"], c["symptoms"], c["cause"], c["fix"], c["components"], c["source"],
                     c["confidence"]))
-        fts.append(("crash", c["id"], c["title"], " ".join((c["symptoms"], c["cause"], c["fix"], c["components"]))))
+        fts.append(("crash", c["id"], c["title"], " ".join((c["symptoms"], c["cause"], c["fix"])), c["components"]))
     for t in cur["test_results"]:
         db.execute("INSERT INTO test_results VALUES (?,?,?,?,?,?,?,?)",
                    (t["id"], t["test"], t["subject"], t["result"], t["date"], t["evidence"], t["source"],
                     t["confidence"]))
-        fts.append(("test", t["id"], t["subject"], " ".join((t["test"], t["result"], t["evidence"]))))
+        fts.append(("test", t["id"], t["subject"], t["result"], " ".join((t["test"], t["evidence"]))))
     return len(cur["crash_signatures"]), len(cur["test_results"])
 
 
-def load_vanilla(db, fts, path: Path) -> int:
+def load_vanilla(db, fts_forms, path: Path) -> int:
     if not path or not path.is_file():
         return 0
     n = 0
@@ -276,8 +279,8 @@ def load_vanilla(db, fts, path: Path) -> int:
                           int(v["override"]), int(v.get("deleted", False)),
                           f"{v['plugin']} (local export, not committed)", "HIGH_CONFIDENCE"))
             if v["edid"] and not v["override"]:
-                fts.append(("form", f"{v['plugin']}:{v['formid']}", f"{v['edid']} {v['full']}",
-                            f"{v['sig']} {camel_words(v['edid'])} {v['full']}"))
+                fts_forms.append((f"{v['plugin']}:{v['formid']}", f"{v['edid']} {v['full']}",
+                                  f"{v['sig']} {camel_words(v['edid'])} {v['full']}"))
             if len(batch) >= 5000:
                 db.executemany("INSERT INTO vanilla_forms VALUES (?,?,?,?,?,?,?,?,?,?,?)", batch)
                 n += len(batch); batch = []
@@ -301,12 +304,14 @@ def build(db_path: Path = DEFAULT_DB, vanilla: Path | None = DEFAULT_VANILLA,
         names = [r[0] for r in db.execute("SELECT name FROM functions")]
         nt = load_techniques(db, fts, names)
         nc, ntr = load_curated_tables(db, fts)
-        nv = load_vanilla(db, fts, vanilla)
-        db.executemany("INSERT INTO fts (kind, key, title, body) VALUES (?,?,?,?)", fts)
+        fts_forms: list[tuple] = []
+        nv = load_vanilla(db, fts_forms, vanilla)
+        db.executemany("INSERT INTO fts (kind, key, title, notes, body) VALUES (?,?,?,?,?)", fts)
+        db.executemany("INSERT INTO fts_forms (key, title, body) VALUES (?,?,?)", fts_forms)
         counts = {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in (
             "record_types", "subrecords", "subrecord_fields", "functions", "function_params", "vanilla_forms",
             "techniques", "engine_classes", "engine_fields", "engine_functions", "crash_signatures",
-            "test_results", "fts")}
+            "test_results", "fts", "fts_forms")}
         counts["functions_obse"] = db.execute("SELECT COUNT(*) FROM functions WHERE origin='obse'").fetchone()[0]
         counts["functions_vanilla"] = db.execute("SELECT COUNT(*) FROM functions WHERE origin='vanilla'").fetchone()[0]
         meta = {"built": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

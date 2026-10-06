@@ -106,8 +106,12 @@ class ExportTests(unittest.TestCase):
     def test_export_vanilla_and_lookup(self):
         fx = fixtures.make(self.tmp / "fx")
         out = self.tmp / "vanilla_index.jsonl"
-        counts = export.export_vanilla(fx["installed"], out, ["Oblivion.esm", "UOP.esp"])
+        # DLCShiveringIsles.esp is a record-less stub here, as in the GOG build
+        counts = export.export_vanilla(fx["installed"], out, ["Oblivion.esm", "DLCShiveringIsles.esp", "UOP.esp"])
+        rows = out.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(counts["Oblivion.esm"], sum('"plugin": "Oblivion.esm"' in x for x in rows))
         self.assertGreater(counts["Oblivion.esm"], 0)
+        self.assertEqual(counts["DLCShiveringIsles.esp"], 0)
         db = self.tmp / "kb.sqlite"
         kbuild.build(db, out, None)
         r = q.form("TestNPC", db)

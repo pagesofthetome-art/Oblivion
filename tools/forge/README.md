@@ -42,7 +42,8 @@ forge kb technique PositionWorld | crash persuasion | stats
 | `crash_signatures`, `test_results` | `kb/data/curated.json` (seeded from agent-docs/docs). | yes |
 | `engine_classes`, `engine_fields`, `engine_functions` | empty, for phase 2b (COEF, xOBSE headers). | — |
 
-- **On the PC:** `scripts\kb\Build forge KB.bat` runs both exports, the build and the KB tests, and writes `kb_log.txt`.
+- **Ranking:** functions, records, techniques, crashes and tests share one index; our notes are a separate, higher-weighted column. Vanilla forms have their own index (`fts_forms`). They lead a `query` only when the question names one exactly (a CamelCase/digit EditorID such as `WeapDaedricLongsword`, or a FormID). Otherwise they fill at most a third of the results, after the knowledge rows. Use `--kind form` for forms only.
+- **On the PC:** `scripts\kb\Build forge KB.bat ["<GOG Oblivion folder>"]` runs both exports, the build and the KB tests, and writes `kb_log.txt`.
 - **Refreshing upstream facts:** `forge kb refresh-sources --xobse <clone> --xedit <wbDefinitionsTES4.pas> --vim <obse.vim>`, then commit `kb/data/*.json`. `provenance.json` records the commit/hash of each source.
 - **OBSE versions:** `obse_version` follows xOBSE's own rule (release index + 8). `8` means "the first OBSE command table" (v0008 or earlier).
 - **Not covered yet:** UESP pages are blocked from the cloud environment, so vanilla functions have no UESP-derived descriptions or parameter lists. Without the PC exe export, only names (and condition-function parameter types) are known; those rows are `HYPOTHESIS` unless a second source or our own note confirms them.

@@ -27,7 +27,14 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] PC exporters: `export-vanilla` (Oblivion.esm + DLC → `vanilla_index.jsonl`) and `export-commands` (Oblivion.exe's own command table → `vanilla_commands.jsonl`). Both outputs and the DB are git-ignored.
 - [x] `scripts\kb\Build forge KB.bat`: exports, build, PC tests, `kb_log.txt`.
 - [x] Cloud tests: 14/14 cloud questions, 2 integrity checks and 3 exporter tests pass. The 6 PC questions skip without the export.
-- [ ] **On the PC:** run `scripts\kb\Build forge KB.bat`; all 20 questions must pass (`TESTS OK` in `kb_log.txt`).
+- [x] **PC run 1 (2026-10-06):** 18/20. The PC questions passed 6/6; exporter and integrity tests passed. Exports: 58,845 vanilla forms, plus 369 script and 131 console commands from Oblivion.exe.
+  - q03 and q13 regressed: 58k form rows shared the FTS index and outranked functions on "how do I..." questions.
+  - Fixed without touching the tests:
+    - Forms now have their own index (`fts_forms`). They lead only when the question names one exactly (a CamelCase/digit EditorID or a FormID); otherwise they take at most a third of the slots, after the knowledge results.
+    - Our notes are a separate, higher-weighted column.
+    - New `test_kb_ranking_noise.py` re-runs the 14 cloud questions against ~59k synthetic forms. It fails on the old ranking (6 failures, including q03/q13) and passes now.
+  - Also fixed: the `export-vanilla` summary showed `Oblivion.esm: 0` (the record-less SI stub overwrote the count). `Build forge KB.bat` now takes the game folder as an argument, or finds it.
+- [ ] **PC run 2:** `scripts\kb\Build forge KB.bat` → 20/20 and `TESTS OK`.
 - [ ] Phase 2b: fill `engine_*` from COEF and the xOBSE headers.
 - Gaps: UESP is unreachable from the cloud, so vanilla functions have no UESP descriptions. Their parameters come from the PC exe export. The ORC hang needs a real write-up.
 

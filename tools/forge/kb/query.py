@@ -88,17 +88,27 @@ def _detail(db, kind: str, key: str) -> dict:
     return dict(r) if r else {}
 
 
-def search(text: str, limit: int = 10, kinds: list[str] | None = None, db_path=None) -> list[dict]:
-    db = connect(db_path)
-    terms = _terms(text)
-    if not terms:
-        return []
+def _is_form_lookup(db, text: str) -> list[str]:
+    """Tokens that name a vanilla form exactly: an EditorID written as such (CamelCase or with
+    digits, e.g. WeapDaedricLongsword, Gold001) or a FormID. Plain words like 'thunderstorm' don't count."""
+    out = []
+    for w in re.findall(r"[A-Za-z0-9_:.]+", text):
+        if re.fullmatch(r"(?:\S+\.es[mp]:)?(?:0x)?[0-9A-Fa-f]{8}", w):
+            out.append(w)
+        elif len(w) >= 4 and (re.search(r"[a-z][A-Z]", w) or re.search(r"[A-Za-z]\d", w)) and \
+                db.execute("SELECT 1 FROM vanilla_forms WHERE edid = ? LIMIT 1", (w,)).fetchone():
+            out.append(w)
+    return out
+
+
+def _search_knowledge(db, terms, text, limit, kinds):
     match = " OR ".join('"' + t.replace('"', "") + '"' for t in terms)
     if kinds:
         match = f"({match}) AND kind:(" + " OR ".join(kinds) + ")"
+    # columns: kind, key, title, notes (our write-ups), body (signatures, params, source text)
     rows = db.execute(
-        "SELECT kind, key, title, snippet(fts, 3, '[', ']', ' … ', 18) AS snip, "
-        "bm25(fts, 0.0, 0.0, 4.0, 1.0) AS score FROM fts WHERE fts MATCH ? ORDER BY score LIMIT ?",
+        "SELECT kind, key, title, snippet(fts, -1, '[', ']', ' … ', 18) AS snip, "
+        "bm25(fts, 0.0, 0.0, 4.0, 3.0, 1.0) AS score FROM fts WHERE fts MATCH ? ORDER BY score LIMIT ?",
         (match, max(limit * 5, 50))).fetchall()
     # names written exactly in the question (INFO, PositionWorld) are what the asker means
     exact = {w for w in re.findall(r"[A-Za-z0-9_]+", text) if len(w) >= 4}
@@ -119,7 +129,52 @@ def search(text: str, limit: int = 10, kinds: list[str] | None = None, db_path=N
                     "score": round(score, 3), "confidence": d.get("confidence"),
                     "source": d.get("source"), "detail": d})
     out.sort(key=lambda x: -x["score"])
-    return out[:limit]
+    return out
+
+
+def _search_forms(db, terms, limit):
+    match = " OR ".join('"' + t.replace('"', "") + '"' for t in terms)
+    rows = db.execute(
+        "SELECT key, title, snippet(fts_forms, -1, '[', ']', ' … ', 12) AS snip, "
+        "bm25(fts_forms, 0.0, 4.0, 1.0) AS score FROM fts_forms WHERE fts_forms MATCH ? ORDER BY score LIMIT ?",
+        (match, limit)).fetchall()
+    out = []
+    for r in rows:
+        d = _detail(db, "form", r["key"])
+        out.append({"kind": "form", "key": r["key"], "title": r["title"], "snippet": r["snip"],
+                    "score": round(-r["score"], 3), "confidence": d.get("confidence"),
+                    "source": d.get("source"), "detail": d})
+    return out
+
+
+def search(text: str, limit: int = 10, kinds: list[str] | None = None, db_path=None) -> list[dict]:
+    """Ranked search. Knowledge (functions, records, techniques, crashes, tests) and vanilla forms
+    are ranked separately: forms lead only when the question names one exactly; otherwise they
+    take at most limit // 3 slots after the knowledge results."""
+    db = connect(db_path)
+    terms = _terms(text)
+    if not terms:
+        return []
+    want_forms = kinds is None or "form" in kinds
+    other = [k for k in (kinds or []) if k != "form"]
+    know = [] if kinds and not other else _search_knowledge(db, terms, text, limit, other or None)
+    forms = []
+    if want_forms and db.execute("SELECT 1 FROM vanilla_forms LIMIT 1").fetchone():
+        lookups = _is_form_lookup(db, text)
+        if lookups:
+            for w in lookups:
+                for f in form(w, db_path, limit):
+                    if not f["override"]:
+                        key = f"{f['plugin']}:{f['formid']}"
+                        forms.append({"kind": "form", "key": key, "title": f"{f['edid']} {f['full']}".strip(),
+                                      "snippet": f"{f['sig']} {f['edid']}", "score": 100.0,
+                                      "confidence": f["confidence"], "source": f["source"], "detail": f})
+            return (forms + know)[:limit]
+        forms = _search_forms(db, terms, limit)
+    if kinds == ["form"]:
+        return forms[:limit]
+    room = limit // 3 if forms else 0
+    return know[:limit - min(room, len(forms))] + forms[:room]
 
 
 def func(name: str, db_path=None) -> dict | None:
