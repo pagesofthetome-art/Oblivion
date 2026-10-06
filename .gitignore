@@ -17,3 +17,10 @@ _audit/
 
 # TES4Forge build output (contains records copied from third-party plugins)
 forge-builds/
+
+# TES4Forge knowledge store: built DB and Bethesda-derived exports stay local
+forge-kb.sqlite
+forge-kb.building
+vanilla_index.jsonl
+vanilla_commands.jsonl
+kb_log.txt

@@ -139,6 +139,10 @@ REGISTRY: list[Capability] = [
     Capability("pocket.return", "Return to the saved point across worldspaces.", "-", "-",
                [], "phase 4", "HYPOTHESIS", "planned", 4),
     Capability("weather.force", "Force/override weather.", "WTHR", "-", [], "phase 4", "HYPOTHESIS", "planned", 4),
+    Capability("kb.query", "Answer modding questions in one call: functions, record layouts, vanilla forms, "
+               "research techniques, crash signatures.", "question / name / SIG / EditorID", "ranked rows with source + confidence",
+               [_p("forge.kb", "tools/forge/kb (forge-kb.sqlite, SQLite FTS5)")],
+               "forge.tests.test_kb_queries (20 questions)", "HIGH_CONFIDENCE", "implemented", 2),
     Capability("build.log", "Hashes, tool versions and commands for every build.", "build", "build-log.json",
                [_p("forge.buildlog", "tools/forge/buildlog.py")],
                "forge.tests.test_cli", "HIGH_CONFIDENCE", "implemented"),
