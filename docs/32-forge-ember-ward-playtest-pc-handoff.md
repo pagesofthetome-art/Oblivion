@@ -49,7 +49,13 @@ The test steps:
 5. After 15 s: pulses ≥ 3.
 6. After 40 s: `IsSpellTarget` = 0, and pulses ≥ 8.
 
-The test beggars (TestTarget/TestCaster) are still brought to the player by the first batch. They aren't used by this test and do nothing.
+**Fixed after the first attempt (dry run: `need two non-essential beggars … found 0`):**
+- **No actors when the plan doesn't use them.** The beggar lookup now runs only when a step names TestTarget or TestCaster. Ember Ward names neither, so no beggars are looked up, moved or prepared. The log says `test actors: none (the plan doesn't use TestTarget/TestCaster)`.
+- **The beggar query.** Oblivion's beggars have the class **Pauper**, not "Beggar", so the old query found none.
+  - It now matches class Pauper or Beggar, or an NPC EditorID starting with `Beggar`.
+  - The vanilla corpus has 25 beggar NPCs, all with persistent EditorID refs (e.g. `ImusTheDullRef`, `PennilessOlvusRef`).
+  - City beggars come before the quest ones.
+  - `forge playtest cells` shows the pick. It's not needed for this run.
 
 ## 2. Steps
 
@@ -70,7 +76,7 @@ The test beggars (TestTarget/TestCaster) are still brought to the player by the 
    python -m unittest discover -s playtest/tests -t .
    cd ..
    ```
-   Expect **110 OK** (6 skipped or fewer) and **94 OK**.
+   Expect **110 OK** (6 skipped or fewer) and **96 OK**.
 4. **Build.**
    ```
    forge build specs\ak-ember-ward.yaml
@@ -94,7 +100,6 @@ The test beggars (TestTarget/TestCaster) are still brought to the player by the 
    - At the **beeps** at the main menu, press **Cross on CONTINUE**.
    - In the Arena you'll see "Ember Ward: warmth settles into your limbs.", then "Ember pulse 1", "2", … every 3 s, and after 30 s "The ember ward fades after 10 pulses."
    - **For about 45 s after loading, don't pause, open menus or wait/sleep.** The test waits in unpaused game time.
-   - Two beggars may walk up; ignore them.
    - At the last beep ("checks done… quit when ready"), play on if you like, then **quit with the pad**.
    - Forge restores everything after the game has exited.
 8. **After the game has exited:**
@@ -121,6 +126,7 @@ The test beggars (TestTarget/TestCaster) are still brought to the player by the 
 
 Write it as a file: `forge-builds\playtest\handoff\HANDOFF-to-cloud-ember1.md`.
 - The `git log` line, the test summaries, and the build output (sha256).
+- The `test actors:` line from the run output (expected: none).
 - The dry run's verdict and the `findstr` result.
 - From the real run:
   - `forge test` (paste);

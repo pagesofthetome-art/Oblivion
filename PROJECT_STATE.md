@@ -80,3 +80,7 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - New: `results: save` / `--results save` (no PrintToFile in the batches; the result save decides).
   - New: `ref: none` checks (`GetGlobalValue`); globals stay EditorIDs in check arguments.
   - 94 tests. Handoff: `docs/32-forge-ember-ward-playtest-pc-handoff.md`.
+- **Handoff 32, attempt 1:** the dry run stopped because the beggar query found 0. Oblivion's beggars have the class **Pauper**, not Beggar.
+  - Fixed: the query matches Pauper/Beggar or an NPC EditorID starting with Beggar; city beggars come first.
+  - The actor lookup now runs only when the plan names TestTarget/TestCaster.
+  - 96 tests.

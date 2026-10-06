@@ -319,6 +319,8 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         head += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}",
                  f"player.setangle z {math.degrees(heading) % 360:.1f}"]
     for ref, dx, dy, dz in bring:
+        if ref.lower() in ("testtarget", "testcaster") and ref.lower() not in forms.aliases:
+            continue                                   # no test actors in this run (the plan doesn't use them)
         head.append(f"{_ref(ref, forms)}.moveto player {dx} {dy} {dz}")
     for role, lines in PREPARE.items():
         if role.lower() in forms.aliases:

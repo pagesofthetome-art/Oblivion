@@ -164,15 +164,26 @@ def build_index(esm: Path) -> dict:
             "actors": [a for a in actors if a["npc"]]}
 
 
+BEGGAR_CLASSES = {"pauper", "beggar"}       # Oblivion's beggars use the class Pauper (corpus 2026-10-06)
+
+
+def is_beggar(a: dict) -> bool:
+    return a["cls"].lower() in BEGGAR_CLASSES or a["npc"].lower().startswith("beggar")
+
+
 def test_actors(index: dict) -> dict:
     """Two real vanilla beggars for the test (Yuri: the console resolves vanilla persistent refs by
-    EditorID; forge-made actors are not needed). Beggar class, not essential, a persistent reference
-    with an EditorID; those without an NPC script first (less quest wiring), then by EditorID so the
-    pick never changes. Target first, caster second."""
-    pool = [a for a in index.get("actors", []) if "beggar" in a["cls"].lower() and not a["essential"]]
-    pool.sort(key=lambda a: (a["npc_script"], a["edid"].lower()))
+    EditorID; forge-made actors are not needed). A beggar (class Pauper, or an NPC EditorID starting
+    with Beggar: the 20 city beggars), not essential, a persistent reference with an EditorID. Order:
+    without an NPC script first (less quest wiring), the city beggars (Beggar*) before quest ones
+    (SE*, MS11*), then by EditorID so the pick never changes. Target first, caster second."""
+    actors = index.get("actors", [])
+    beggars = [a for a in actors if is_beggar(a)]
+    pool = [a for a in beggars if not a["essential"]]
+    pool.sort(key=lambda a: (a["npc_script"], not a["npc"].lower().startswith("beggar"), a["edid"].lower()))
     if len(pool) < 2:
-        raise VanillaError(f"need two non-essential beggars with persistent EditorID refs; found {len(pool)}")
+        raise VanillaError(f"need two non-essential beggars with persistent EditorID refs; found {len(pool)} "
+                           f"({len(beggars)} beggars in all, {len(actors)} persistent actor refs with an EditorID)")
     pick = {"target": pool[0], "caster": pool[1]}
     return {role: {"edid": a["edid"], "ref": f"{a['ref'] & 0xFFFFFF:08X}", "npc": a["npc"], "name": a["name"],
                    "home": a["cell_edid"]} for role, a in pick.items()}

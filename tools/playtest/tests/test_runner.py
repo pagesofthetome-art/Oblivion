@@ -103,6 +103,29 @@ class RunnerTests(MachineCase):
         self.assertFalse((self.m.game_dir / "forge_test.log").exists())
         self.assertRealSetupUntouched()
 
+    def test_a_plan_without_test_actors_needs_no_beggars(self):
+        # Ember Ward is self-cast: no TestTarget/TestCaster, so no beggar lookup and no beggar lines
+        self.with_save()
+        plan = self.tmp / "selfcast.json"
+        plan.write_text(json.dumps({"test_plan": {"cell": "arena", "results": "save", "steps": [
+            {"addspell": "ForgeExampleFireboltSpell"},
+            {"check": {"ref": "player", "fn": "HasSpell", "args": ["ForgeExampleFireboltSpell"], "expect": "== 1"}}]}}))
+        import playtest.vanilla as van
+        old = van.test_actors
+        van.test_actors = lambda idx: (_ for _ in ()).throw(van.VanillaError("found 0"))
+        try:
+            p = self.fake()
+            res = runner.run(EXAMPLE, self.opts(manifest=plan), self.m, p)
+        finally:
+            van.test_actors = old
+        self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs) + json.dumps(res, indent=1))
+        self.assertIsNone(res["test_actors"])
+        self.assertFalse([h for h in p.game.history if "beggar" in h.lower() or "moveto player" in h.lower()])
+        self.assertTrue(any("none (the plan doesn't use TestTarget/TestCaster)" in l for l in self.logs))
+        self.assertTrue(runner.uses_test_actors({"steps": [{"cast": {"spell": "X", "target": "TestTarget"}}]}))
+        self.assertFalse(runner.uses_test_actors({"steps": [{"cast": {"spell": "X", "target": "player"}}]}))
+        self.assertRealSetupUntouched()
+
     def test_a_log_with_markers_only_falls_back_to_the_result_save(self):
         self.with_save()
         res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="conscribe"))

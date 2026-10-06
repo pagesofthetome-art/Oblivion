@@ -141,11 +141,11 @@ any map marker with `--cell "marker:<name>"`. `forge playtest find <text>` searc
 
 **Test actors are real vanilla beggars** (Yuri's choice: the console already resolves vanilla
 persistent references by EditorID). `vanilla.test_actors` picks them from Oblivion.esm:
-- the NPC's class is Beggar, and it is not essential;
+- the NPC is a beggar: class Pauper (Oblivion's beggar class) or Beggar, or an NPC EditorID starting with `Beggar`. It must not be essential;
 - the reference is persistent and has an EditorID;
 - NPCs without their own script come first, then the order is by EditorID, so the pick is stable.
 
-The first is **`TestTarget`**, the second **`TestCaster`**. Specs use these role names, and
+The first is **`TestTarget`**, the second **`TestCaster`**. They are looked up only when a step names one of them; a self-cast test (Ember Ward) runs with no actors at all. Specs use these role names, and
 `forge playtest cells` prints which beggars they are. The first batch brings both to the player.
 It gives the target 500 health and sets aggression 0 / confidence 100 on both, so a test spell
 doesn't kill the target or start a fight (the test save is thrown away anyway).

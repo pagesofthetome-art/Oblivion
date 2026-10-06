@@ -147,12 +147,27 @@ def vanilla_index(m: profile.Machine) -> dict:
     return vanilla.load_index(esm, m.state_dir / "vanilla-index.json")
 
 
+TEST_ROLES = {"testtarget", "testcaster"}
+
+
+def uses_test_actors(plan: dict) -> bool:
+    """Does any step name TestTarget or TestCaster (in any field, or inside a console line)?"""
+    def walk(v):
+        if isinstance(v, dict):
+            return any(walk(x) for x in v.values())
+        if isinstance(v, (list, tuple)):
+            return any(walk(x) for x in v)
+        return isinstance(v, str) and any(r in v.lower() for r in TEST_ROLES)
+    return walk(plan.get("steps") or [])
+
+
 def prepare(t: Target, opts: Options, m: profile.Machine) -> Prepared:
     data = m.data
     try:
         idx = vanilla_index(m)
         loc = vanilla.resolve(opts.cell or t.plan.get("cell"), idx)
-        actors = vanilla.test_actors(idx)
+        # the beggars are looked up only when the plan uses them (a self-cast test needs no actors)
+        actors = vanilla.test_actors(idx) if uses_test_actors(t.plan) else None
     except vanilla.VanillaError as e:
         raise PlaytestError(str(e)) from None
     tc_esp, lay = testcells_build(m)
@@ -434,8 +449,9 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             prep = prepare(t, opts, m)
             loc = prep.location
             log(f"location: {loc.label}: {loc.detail}  (boot: {loc.boot})")
-            log("test actors: " + ", ".join(f"{role} = {a['edid']} ({a['name']}, {a['ref']})"
-                                            for role, a in (prep.actors or {}).items()))
+            log("test actors: " + (", ".join(f"{role} = {a['edid']} ({a['name']}, {a['ref']})"
+                                             for role, a in prep.actors.items()) if prep.actors
+                                   else "none (the plan doesn't use TestTarget/TestCaster)"))
             lo = prof.apply(prep, opts)
             forms = _forms(prep, m, lo)
             man = mf.build(t.plan, forms, location=loc.to_dict(), bring=testcells.BRING.get(loc.key, []),

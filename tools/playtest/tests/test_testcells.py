@@ -108,6 +108,23 @@ class VanillaTests(unittest.TestCase):
         self.assertNotIn("FixtureBeggarEssRef", picked, "essential NPCs are never used")
         self.assertNotIn("FixtureGuardCidRef", picked, "beggars only")
 
+    def test_oblivion_beggars_are_class_pauper(self):
+        # PC run of handoff 32: vanilla beggars use the class Pauper; "Beggar" matched none of them
+        def actor(edid, npc, cls, essential=False, script=False):
+            return {"edid": edid, "ref": 0x15D97, "npc": npc, "name": npc, "cls": cls, "essential": essential,
+                    "npc_script": script, "cell_edid": "X"}
+        idx = {"actors": [actor("PennilessOlvusRef", "BeggarAnvilPennilessOlvus", "Pauper"),
+                          actor("ImusTheDullRef", "BeggarAnvilImusTheDull", "Pauper"),
+                          actor("SEBhishaRef", "SEBeggarBhisha", "Pauper"),
+                          actor("EssBeggarRef", "BeggarEss", "Pauper", essential=True),
+                          actor("GuardRef", "SomeGuard", "Guard")]}
+        a = vanilla.test_actors(idx)
+        self.assertEqual((a["target"]["edid"], a["caster"]["edid"]), ("ImusTheDullRef", "PennilessOlvusRef"),
+                         "city beggars first, then by EditorID; never essential, never a guard")
+        with self.assertRaises(vanilla.VanillaError) as cm:
+            vanilla.test_actors({"actors": [idx["actors"][4]]})
+        self.assertIn("0 beggars in all", str(cm.exception))
+
     def test_custom_and_errors(self):
         self.assertEqual(vanilla.resolve("ICArenaBloodworks", self.idx).boot, "coc ICArenaBloodworks")
         self.assertEqual(vanilla.resolve("marker:Weye", self.idx).moveto, "0000C001")
