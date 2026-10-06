@@ -62,7 +62,12 @@ Windows for the folders, not the environment); a second Windows user (too heavy)
 The test ini is your real Oblivion.ini with these changes:
 - intro videos off, its own save folder, no autosaves;
 - **windowed at the desktop size**, and forge removes the window border (as `Controller --prepare-display`
-  does for play). Run 2 drew 1920x1080 into a 1280x720 desktop, which put the menus off-screen;
+  does for play). Under Windows display scaling (150 % on Shadow), a DPI-unaware Oblivion.exe gets
+  drawn 1.5x too big (runs 2 and 3: 2/3 of the frame visible). So:
+  - if the play copy's Oblivion.exe has a DPI compatibility flag (HKCU/HKLM `AppCompatFlags\Layers`,
+    e.g. `HIGHDPIAWARE`), the GOG exe gets the same flag for the run only (journaled, removed
+    afterwards) and renders at the physical size;
+  - otherwise it renders at the logical size, and Windows scales it up to fill the screen;
 - `bUse Joystick=0`, so the pad goes through NorthernUI only. For the run, NorthernUI uses **the play
   setup's NorthernUI.ini**: it is copied in from the Steam Data folder, read only, and the GOG copy's
   own file is restored afterwards. The controller companion starts in NorthernUI mode;
@@ -70,17 +75,22 @@ The test ini is your real Oblivion.ini with these changes:
 
 The boot itself:
 1. `obse_loader.exe` starts the game.
-2. **Plan A:** at the main menu the driver opens the console and types the location's boot
-   command: `coc <Interior>`, or `cow <World> x y`.
-3. **Plan B:** used if plan A starts no load within 20 s and the test save exists. Forge **beeps**:
-   press Cross on **CONTINUE**. That loads `Saves\ForgePlaytest\ForgePlaytestBase.ess`, then the
-   boot command runs from the in-game console. Make that save once with `forge playtest make-save`
-   (New Game with the pad; forge takes over once you can walk). Forge never presses keys in the
-   main menu itself: in run 2, Down+Enter opened a stray message box.
-4. After the load, `bat fpt1` puts you on a **door arrival spot** (where a load door lets you out:
-   always walkable floor). It then brings the test actors next to you, checks where you are
-   (`GetInCell` / `GetInWorldspace`), and runs the steps.
-5. Boot time is measured from the command to "loaded, player in control". The target is 30 s.
+2. **With the test save** (the normal case): forge **beeps**, and you press Cross on **CONTINUE**.
+   Then the boot command (`coc <Interior>` / `cow <World> x y`) runs from the in-game console. Forge
+   never presses keys in the main menu (run 2: Down+Enter opened a stray message box). If the save
+   brings up a character-creation menu, the run stops and asks for a new `make-save`.
+3. **Without it**, plan A: open the console at the main menu and type the boot command. This has never
+   started a game on the PC so far; it then tells you to run `forge playtest make-save`.
+4. **`forge playtest make-save`** (once): New Game with the pad. When the character screen opens,
+   change nothing, leave the name box alone, choose DONE and confirm. Forge waits until that screen
+   has closed, then runs `coc` to the arena. It checks in the log that you really are there, saves
+   `Saves\ForgePlaytest\ForgePlaytestBase.ess` and quits. Autosaves in that folder (and only there)
+   are removed so that Continue always loads it.
+5. After the load, `bat fpt1` (each batch exists as `fptN.txt` and `fptN`, so `bat` finds it either
+   way) puts you on a **door arrival spot**. It then brings the test actors next to you, checks where
+   you are (`GetInCell` / `GetInWorldspace`), and runs the steps. Logging is turned on with both
+   `con_SCOF` and `scof`.
+6. Boot time is measured from the command to "loaded, player in control". The target is 30 s.
 
 Every run folder (`forge-builds\playtest\runs\<time>\`) also keeps:
 - `boot-trace.jsonl`: menu stack, menu mode, focus and window, twice a second;
@@ -96,7 +106,7 @@ These are picked from the test game's own Oblivion.esm, which is only read. The 
 
 | key | where | for |
 |---|---|---|
-| `arena` | the Imperial City Arena's fighting floor: the busiest interior whose EditorID/name says Arena, side rooms (holding, bloodworks, quarters…) excluded; you stand where the gate lets you in | spells and combat |
+| `arena` | the Imperial City Arena's fighting floor: interior `ICArena`, arriving through the Bloodworks gate as for a match | spells and combat |
 | `street` | the Market District worldspace: its busiest cell, outside a shop door | doors, shops, crowds, a merchant |
 | `open` | the *Weye* map marker (shore road west of the city) | weather (`fw`) and projectiles |
 

@@ -49,7 +49,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(len(m["chunks"]), 2)
         self.assertEqual(m["chunks"][1]["wait_before"], 3.0)
         first, second = m["chunks"][0]["lines"], m["chunks"][1]["lines"]
-        self.assertEqual(first[:6], ["scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
+        self.assertEqual(first[:7], ["con_SCOF forge_test.log", "scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
                                      "0300081A.moveto player 0 600 0", "0300081B.moveto player 200 100 0",
                                      'printc "FORGE|CELL|ArenaArena"', "player.GetInCell ArenaArena"])
         self.assertIn("player.addspell 02000800", first)
@@ -64,7 +64,7 @@ class ManifestTests(unittest.TestCase):
         loc = dict(LOC, key="street", boot="cow ICMarketDistrict 10 6", moveto="0000C002", cell_edid=None,
                    world_edid="ICMarketDistrict")
         lines = manifest(location=loc)["chunks"][0]["lines"]
-        self.assertEqual(lines[2], "player.moveto 0000C002")
+        self.assertEqual(lines[3], "player.moveto 0000C002")
         self.assertIn("player.GetInWorldspace ICMarketDistrict", lines)
 
     def test_cell_arguments_stay_editor_ids(self):

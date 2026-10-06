@@ -237,7 +237,9 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
     """
     run_id = run_id or secrets.token_hex(4)
     chunks: list[dict] = [{"wait_before": 0.0, "lines": []}]
-    head = [f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"']
+    # con_SCOF (xOBSE) and scof (vanilla) both point the console log at the same file; whichever
+    # exists works (run 3: the street batches left no log at all)
+    head = [f"con_SCOF {LOG_NAME}", f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"']
     if location.get("moveto"):
         head.append(f"player.moveto {location['moveto']}")
     if location.get("setpos"):

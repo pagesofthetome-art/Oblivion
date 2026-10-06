@@ -11,8 +11,8 @@ keyed by the file's size and modification time.
 
 Default picks (each can be overridden: `--cell <InteriorEditorID>`, `--cell marker:<Map marker name>`,
 `--cell world:<Worldspace>` or `--cell cow:<World>:<x>:<y>`):
-  arena   the Imperial City Arena's combat floor: the busiest interior whose EditorID/name says
-          Arena, side rooms (holding, bloodworks, quarters...) excluded
+  arena   the Imperial City Arena's combat floor: interior ICArena, arriving through the
+          Bloodworks gate (fallbacks: name 'Imperial City Arena', then an ICArena* EditorID)
   street  the Market District worldspace: the busiest cell, standing where a shop door lets you out
   open    the Weye map marker (open shore road west of the Imperial City)
 
@@ -31,15 +31,18 @@ from pathlib import Path
 MAP_MARKER = 0x00000010
 DEFAULTS = {
     "arena": {"label": "Imperial City Arena, combat floor",
-              # the fighting pit: the busiest interior whose EditorID or name says Arena, minus the side rooms
-              "exclude": r"holding|bloodwork|quarter|storage|hall|champion|tunnel|basement|store|shop|room|"
-                         r"gate|blue|yellow|team|lobby|bet|test"},
+              # the fighting pit (verified on Yuri's Oblivion.esm, run 3): EditorID ICArena, name
+              # 'Imperial City Arena'; the player arrives through the Bloodworks gate, as for a match
+              "edid": "ICArena", "arrive_from": r"bloodworks",
+              "name": "Imperial City Arena",
+              "exclude": r"spectator|champion|holding|bloodwork|quarter|storage|hall|tunnel|basement|"
+                         r"store|shop|room|gate|lobby|bet|test|sewer"},
     "street": {"label": "Imperial City street",
                "worlds": ["ICMarketDistrict", "ICTalosPlazaDistrict", "ICElvenGardensDistrict",
                           "ICArenaDistrict", "ICTempleDistrict"]},
     "open": {"markers": ["Weye", "Pell's Gate", "Aleswell"], "label": "open countryside"},
 }
-INDEX_VERSION = 2
+INDEX_VERSION = 3
 
 
 class VanillaError(RuntimeError):
@@ -118,8 +121,10 @@ def build_index(esm: Path) -> dict:
         if cell is None:
             continue
         w = where(cell, d["pos"])
+        frm = cells.get(ref_cell.get(d["ref"]), {})
         spots.append({"door": d["dest"], "cell": cell, "pos": [round(v, 1) for v in d["pos"]],
-                      "rot": round(d["rot"], 4), "cell_refs": refcount.get(cell, 0), **w})
+                      "rot": round(d["rot"], 4), "cell_refs": refcount.get(cell, 0),
+                      "from": frm.get("edid") or worlds.get(frm.get("world"), ""), **w})
     interiors = [{"fid": fid, "edid": c["edid"], "name": c["name"], "refs": refcount.get(fid, 0)}
                  for fid, c in cells.items() if c["interior"] and c["edid"]]
     ext_refs: dict[tuple, int] = {}
@@ -173,12 +178,15 @@ def _spots(index: dict, interior: str | None = None, world: str | None = None) -
     return sorted(out, key=lambda sp: (-sp["cell_refs"], sp["door"]))
 
 
-def _interior_location(key: str, label: str, c: dict, index: dict) -> Location:
+def _interior_location(key: str, label: str, c: dict, index: dict, arrive_from: str | None = None) -> Location:
     spots = _spots(index, interior=c["edid"])
+    if arrive_from:
+        preferred = [sp for sp in spots if re.search(arrive_from, sp.get("from") or "", re.I)]
+        spots = preferred + [sp for sp in spots if sp not in preferred]
     sp = spots[0] if spots else None
     return Location(key, label, f"coc {c['edid']}", None, c["edid"], None,
                     f"interior {c['edid']} ('{c['name']}', {c['refs']} refs)"
-                    + (f", standing at the arrival spot of door {_cid(sp['door'])}" if sp else ""),
+                    + (f", arriving from {sp.get('from') or '?'} (door {_cid(sp['door'])})" if sp else ""),
                     [*sp["pos"], sp["rot"]] if sp else None)
 
 
@@ -209,13 +217,18 @@ def resolve(key_or_spec: str | None, index: dict) -> Location:
         return Location("custom", spec, f"cow {world} {int(x)} {int(y)}", None, None, world, spec)
     if low == "arena":
         d = DEFAULTS["arena"]
-        hits = [c for c in index["interiors"] if re.search("arena", c["edid"] + " " + (c["name"] or ""), re.I)
-                and not re.search(d["exclude"], c["edid"] + " " + (c["name"] or ""), re.I)]
-        if not hits:
-            raise VanillaError("no Arena interior found in Oblivion.esm; pass --cell <InteriorEditorID> "
-                               "(forge playtest find arena)")
-        best = max(hits, key=lambda c: (c["refs"], c["edid"]))
-        return _interior_location("arena", d["label"], best, index)
+        best = next((c for c in index["interiors"] if c["edid"].lower() == d["edid"].lower()), None)
+        if best is None:                                  # not the vanilla esm layout: name, then heuristic
+            named = [c for c in index["interiors"] if (c["name"] or "").strip().lower() == d["name"].lower()
+                     and not re.search(d["exclude"], c["edid"], re.I)]
+            # never "anything with Arena in the name": that picked the ruin 'Cann, Arena' in run 3
+            hits = named or [c for c in index["interiors"] if c["edid"].lower().startswith("icarena")
+                             and not re.search(d["exclude"], c["edid"], re.I)]
+            if not hits:
+                raise VanillaError("no Arena interior found in Oblivion.esm; pass --cell <InteriorEditorID> "
+                                   "(forge playtest find arena)")
+            best = max(hits, key=lambda c: (c["refs"], c["edid"]))
+        return _interior_location("arena", d["label"], best, index, d["arrive_from"])
     if low == "street":
         d = DEFAULTS["street"]
         for world in d["worlds"]:

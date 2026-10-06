@@ -79,7 +79,12 @@ class Platform:
         return False
 
     def desktop_size(self) -> tuple[int, int] | None:
+        """Physical desktop pixels."""
         return None
+
+    def dpi_scale(self) -> float:
+        """Windows display scaling (1.0 = 100 %, 1.5 = 150 %)."""
+        return 1.0
 
     def make_borderless(self, win) -> bool:
         return False
@@ -249,7 +254,14 @@ class WinPlatform(Platform):
         return bool(win) and bool(self.u.IsHungAppWindow(win[0]))
 
     def desktop_size(self):
-        return self.osk.screen_size()
+        return self.osk.screen_size()                    # makes this process DPI aware: physical pixels
+
+    def dpi_scale(self):
+        try:
+            self.osk.screen_size()
+            return max(1.0, self.u.GetDpiForSystem() / 96.0)
+        except Exception:
+            return 1.0
 
     def make_borderless(self, win):
         return bool(win) and self.osk.make_borderless(win[0])

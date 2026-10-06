@@ -19,7 +19,7 @@ class FakeGame:
         self.dir = game_dir
         self.b = {"menu_at": 3.0, "load_seconds": 2.0, "damage": 25.0, "freeze_at": None, "printc": True,
                   "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None,
-                  "continue_after": None}
+                  "continue_after": None, "chargen_seconds": 10.0, "save_before_chargen": False}
         self.b.update(behaviour or {})
         self.state = "starting"
         self.console_open = False
@@ -29,6 +29,7 @@ class FakeGame:
         self.spells: set = set()
         self.cell = None
         self.world = None
+        self.loaded_save = False
         self.menu_since = None
         self.t_load = None
         self.alive = True
@@ -47,22 +48,30 @@ class FakeGame:
             self.cell, self.state, self.t_load = "TutorialPrison", "loading", now     # Yuri pressed New
         if (self.state == "menu" and self.b["continue_after"] is not None
                 and now - self.menu_since >= self.b["continue_after"]):
-            self.cell, self.state, self.t_load = "ArenaArenaFixture", "loading", now  # Yuri pressed Continue
+            self.cell, self.state, self.t_load = "ICArena", "loading", now  # Yuri pressed Continue
+            self.loaded_save = True
         if self.state == "loading" and now - self.t_load >= self.b["load_seconds"]:
-            self.state = "game"
+            self.state = "chargen" if self.cell == "TutorialPrison" or self.b["save_before_chargen"] and \
+                self.loaded_save else "game"
+            self.chargen_since = now
+        if (self.state == "chargen" and not (self.b["save_before_chargen"] and self.loaded_save)
+                and now - self.chargen_since >= self.b["chargen_seconds"]):
+            self.state = "game"                                                      # Yuri chose DONE
         if self.b["freeze_at"] is not None and now - self.started >= self.b["freeze_at"]:
             self.state = "frozen"
 
     def ui(self) -> dict:
         menus = {"starting": [], "menu": [plat.MENU_MAIN], "loading": [plat.MENU_LOADING], "game": [1004],
-                 "frozen": [1004]}[self.state]
-        mode = self.state in ("menu", "loading") or self.console_open
+                 "frozen": [1004], "chargen": [1036]}[self.state]
+        mode = self.state in ("menu", "loading", "chargen") or self.console_open
         return {"menu": menus[-1] if menus else 0, "menus": menus, "menu_mode": mode}
 
     def key(self, k: str):
         if self.state == "frozen":
             return
         if k == "tilde":
+            if self.state == "chargen":
+                return
             if self.state == "menu" and not self.b["menu_console"]:
                 return
             self.console_open = not self.console_open
@@ -114,6 +123,8 @@ class FakeGame:
                 if line.strip():
                     self.run(line)
             return
+        if low.startswith("con_scof "):
+            cmd, low = cmd[4:], low[4:]
         if low.startswith("scof "):
             arg = cmd.split(None, 1)[1]
             self.log = None if arg == "0" else self.dir / arg
@@ -224,8 +235,13 @@ class FakePlatform(plat.Platform):
     def freeze_tick(self, win, focused):
         return False
 
+    scale = 1.0
+
     def desktop_size(self):
-        return (1280, 720)
+        return (1920, 1080) if self.scale > 1 else (1280, 720)
+
+    def dpi_scale(self):
+        return self.scale
 
     def make_borderless(self, win):
         self.borderless = True

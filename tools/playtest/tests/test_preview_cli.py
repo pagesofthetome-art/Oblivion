@@ -43,7 +43,7 @@ class PreviewTests(unittest.TestCase):
         self.assertTrue(merchant["npc"]["packages"][0]["offers_services"])
 
     def test_vanilla_cell(self):
-        d = preview.extract_vanilla_cell(self.esm, fixtures.ARENA_CELL, "ArenaArenaFixture", "Arena")
+        d = preview.extract_vanilla_cell(self.esm, fixtures.ARENA_CELL, "ICArena", "Arena")
         items = d["cells"][0]["items"]
         self.assertEqual(len(items), 5)
         self.assertEqual(sum(1 for i in items if i["base"] == "ArenaFloor"), 4)
@@ -104,7 +104,7 @@ class CliTests(MachineCase):
             self.assertIn("nothing to restore", forge("playtest", "restore")[1])
             code, out, _ = forge("playtest", "cells")
         self.assertEqual(code, 0)
-        self.assertIn("coc ArenaArenaFixture", out)
+        self.assertIn("coc ICArena", out)
         self.assertIn("cow ICMarketDistrict 10 6", out)
         self.assertIn("look like: ICCitizenFixture", out)
         with self.env():
@@ -131,7 +131,7 @@ class CliTests(MachineCase):
         with self.env():
             code, out, err = forge("preview", "cells", "--out", str(self.tmp / "pv.html"))
             self.assertEqual(code, 0, out + err)
-            self.assertIn("ArenaArenaFixture", (self.tmp / "pv.html").read_text(encoding="utf-8"))
+            self.assertIn("ICArena", (self.tmp / "pv.html").read_text(encoding="utf-8"))
             code, out, err = forge("preview", str(EXAMPLE))
         self.assertEqual(code, 1, "the fire-bolt mod places nothing: nothing to preview")
         self.assertIn("places no objects", err)

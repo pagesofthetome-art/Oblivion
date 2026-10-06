@@ -40,11 +40,11 @@ class RunnerTests(MachineCase):
         self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs) + json.dumps(res, indent=1))
         self.assertLess(res["boot_seconds"], 30)
         self.assertEqual(res["boot_strategy"], "A: console at the main menu")
-        self.assertEqual(res["location"]["boot"], "coc ArenaArenaFixture")
+        self.assertEqual(res["location"]["boot"], "coc ICArena")
         self.assertTrue(all(v["same"] for v in res["restore_check"].values()))
         self.assertRealSetupUntouched()
         hist = p.game.history
-        self.assertEqual(hist[0], "coc ArenaArenaFixture")
+        self.assertEqual(hist[0], "coc ICArena")
         self.assertIn("bat fpt1", hist)
         self.assertTrue(any(h.endswith(".moveto player 0 600 0") for h in hist), "dummy brought to the player")
         self.assertFalse([h for h in hist if h.startswith("GAME KEYS")], "typed into the game, not the console")
@@ -86,13 +86,13 @@ class RunnerTests(MachineCase):
     def test_menu_console_fails_continue_from_test_save(self):
         self.m.save_dir.mkdir(parents=True)
         (self.m.save_dir / "ForgePlaytestBase.ess").write_bytes(b"save")
-        p = self.fake(menu_console=False, continue_after=40.0)
+        p = self.fake(menu_console=False, continue_after=4.0)
         res = runner.run(EXAMPLE, self.opts(), self.m, p)
         self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs))
         self.assertTrue(any("BEEP" in l for l in self.logs))
-        self.assertIn(res["boot_strategy"], ("B: Continue + in-game console",
-                                             "A: console at the main menu (+ again in game)"))
-        self.assertEqual(p.game.cell, "ArenaArenaFixture")
+        self.assertEqual(res["boot_strategy"], "B: Continue + in-game console")
+        self.assertNotIn("coc ICArena", p.game.history[:0])
+        self.assertEqual(p.game.cell, "ICArena")
         self.assertEqual(p.game.history[-1], "qqq")
         self.assertRealSetupUntouched()
 
@@ -108,13 +108,58 @@ class RunnerTests(MachineCase):
         runner.run(EXAMPLE, self.opts(dry_run=True), self.m, p)
         self.assertTrue(any("Discord" in l for l in self.logs))
 
-    def test_make_save(self):
-        p = self.fake(new_game_after=20.0)
+    def test_make_save_waits_for_the_character_screen(self):
+        (self.m.save_dir).mkdir(parents=True)
+        (self.m.save_dir / "autosave.ess").write_bytes(b"old")
+        p = self.fake(new_game_after=20.0, chargen_seconds=30.0)
         res = runner.make_save(self.opts(), self.m, p)
         self.assertTrue(res["made"], res)
-        self.assertTrue((self.m.save_dir / "ForgePlaytestBase.ess").is_file())
-        self.assertIn("coc ArenaArenaFixture", p.game.history)
+        self.assertEqual(sorted(f.name for f in self.m.save_dir.iterdir()), ["ForgePlaytestBase.ess"])
+        hist = p.game.history
+        self.assertLess(hist.index("coc ICArena"), hist.index("save ForgePlaytestBase"))
+        self.assertIn("bat fptsave", hist)
+        trace = (Path(res["run_dir"]) / "boot-trace.jsonl").read_text()
+        self.assertIn("character screen done", trace)
         self.assertRealSetupUntouched()
+
+    def test_save_from_before_chargen_is_reported(self):
+        self.m.save_dir.mkdir(parents=True)
+        (self.m.save_dir / "ForgePlaytestBase.ess").write_bytes(b"save")
+        p = self.fake(continue_after=3.0, save_before_chargen=True)
+        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        self.assertEqual(res["verdict"], "NOT-RUN")
+        self.assertIn("before character creation", res["error"])
+        self.assertRealSetupUntouched()
+
+    def test_dpi_flag_of_the_play_copy_is_mirrored_for_the_run(self):
+        steam_exe = str(self.fx["steam"] / "Oblivion.exe")
+        self.m.layers = profile.MemoryLayers(user={steam_exe: "~ HIGHDPIAWARE"})
+        p = self.fake()
+        p.scale = 1.5
+        seen = {}
+        orig = p.launch
+
+        def launch(exe, cwd):
+            seen.update(self.m.layers.user)
+            orig(exe, cwd)
+        p.launch = launch
+        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        gog_exe = str(self.m.game_dir / "Oblivion.exe")
+        self.assertEqual(seen.get(gog_exe), "~ HIGHDPIAWARE", "flag set while the game runs")
+        self.assertEqual(self.m.layers.user, {steam_exe: "~ HIGHDPIAWARE"}, "and removed afterwards")
+        ini = (Path(res["run_dir"]) / "Oblivion.test.ini").read_bytes().decode("cp1252")
+        self.assertIn("iSize W=1920", ini)
+        self.assertRealSetupUntouched()
+
+    def test_without_a_dpi_flag_the_test_renders_at_the_logical_size(self):
+        self.m.layers = profile.MemoryLayers()
+        p = self.fake()
+        p.scale = 1.5
+        res = runner.run(EXAMPLE, self.opts(dry_run=True), self.m, p)
+        ini = (Path(res["run_dir"]) / "Oblivion.test.ini").read_bytes().decode("cp1252")
+        self.assertIn("iSize W=1280", ini)
+        self.assertIn("iSize H=720", ini)
+        self.assertEqual(self.m.layers.user, {})
 
     def test_spell_that_does_nothing_fails(self):
         res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(damage=0.0))

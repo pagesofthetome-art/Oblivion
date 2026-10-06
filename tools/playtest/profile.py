@@ -88,6 +88,70 @@ def _fsync_write(path: Path, data: bytes) -> None:
     os.replace(tmp, path)
 
 
+# ---------------------------------------------------------------- Windows compatibility layers
+LAYERS_KEY = r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+
+
+class Layers:
+    """Per-exe compatibility flags (e.g. '~ HIGHDPIAWARE'). HKCU is written, HKLM only read."""
+
+    def get(self, exe: str, machine: bool = False) -> str | None:
+        return None
+
+    def set(self, exe: str, value: str) -> None:
+        raise ProfileError("compatibility flags can only be set on Windows")
+
+    def delete(self, exe: str) -> None:
+        pass
+
+
+class WinLayers(Layers):
+    def get(self, exe, machine=False):
+        import winreg
+        root = winreg.HKEY_LOCAL_MACHINE if machine else winreg.HKEY_CURRENT_USER
+        try:
+            with winreg.OpenKey(root, LAYERS_KEY) as k:
+                return winreg.QueryValueEx(k, exe)[0]
+        except OSError:
+            return None
+
+    def set(self, exe, value):
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, LAYERS_KEY) as k:
+            winreg.SetValueEx(k, exe, 0, winreg.REG_SZ, value)
+
+    def delete(self, exe):
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, LAYERS_KEY, 0, winreg.KEY_SET_VALUE) as k:
+                winreg.DeleteValue(k, exe)
+        except OSError:
+            pass
+
+
+class MemoryLayers(Layers):
+    """For tests: a dict standing in for the registry."""
+
+    def __init__(self, user: dict | None = None, machine: dict | None = None):
+        self.user, self.machine = dict(user or {}), dict(machine or {})
+
+    def get(self, exe, machine=False):
+        return (self.machine if machine else self.user).get(exe)
+
+    def set(self, exe, value):
+        self.user[exe] = value
+
+    def delete(self, exe):
+        self.user.pop(exe, None)
+
+
+DPI_TOKENS = ("HIGHDPIAWARE", "DPIUNAWARE", "GDIDPISCALING")
+
+
+def dpi_flags(value: str | None) -> list[str]:
+    return [t for t in (value or "").replace("~", " ").split() if t.upper() in DPI_TOKENS]
+
+
 # ---------------------------------------------------------------- the machine
 @dataclass
 class Machine:
@@ -98,6 +162,13 @@ class Machine:
     play_dirs: list[Path] = field(default_factory=list)     # play installs: read-only, never written
     vortex_dirs: list[Path] = field(default_factory=list)
     master_dirs: list[Path] = field(default_factory=list)   # where to copy missing masters FROM
+    layers: Layers | None = None                             # compatibility flags (None = this OS's)
+
+    @property
+    def reg(self) -> Layers:
+        if self.layers is None:
+            self.layers = WinLayers() if os.name == "nt" else Layers()
+        return self.layers
 
     @property
     def data(self) -> Path:
@@ -378,6 +449,13 @@ class Session:
         self.j["collect"].append(str(path))
         self._save()
 
+    def set_layer(self, exe: str, value: str) -> None:
+        """Set a per-user compatibility flag for the run (old value journaled, restored after)."""
+        old = self.m.reg.get(exe)
+        self.j.setdefault("layers", []).append({"exe": exe, "old": old})
+        self._save()
+        self.m.reg.set(exe, value)
+
     def set_game_pid(self, pid: int) -> None:
         self.j["game_pid"] = pid
         self._save()
@@ -410,6 +488,15 @@ def restore(m: Machine, log=print) -> list[str]:
         elif t.exists():
             t.unlink()
             notes.append(f"removed {t} (did not exist before)")
+    for entry in reversed(j.get("layers", [])):
+        try:
+            if entry["old"] is None:
+                m.reg.delete(entry["exe"])
+            else:
+                m.reg.set(entry["exe"], entry["old"])
+            notes.append(f"restored the compatibility flags of {entry['exe']}")
+        except (OSError, ProfileError) as e:
+            failures.append(f"compatibility flag of {entry['exe']}: {e}")
     for path in j.get("collect", []):
         p = Path(path)
         if p.exists():

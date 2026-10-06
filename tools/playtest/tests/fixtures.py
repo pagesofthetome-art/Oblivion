@@ -3,7 +3,7 @@
 fake_esm() writes an 'Oblivion.esm' with just what playtest reads from the real one:
   * the vanilla FormIDs the test actors use (Imperial race 0x907, Gold001 0x0F, Lockpick 0x0A,
     RepairHammer 0x0C) and XMarkerHeading / MapMarker statics;
-  * an interior 'ArenaArenaFixture' (with a few references) and a decoy interior;
+  * the Arena interiors 'ICArena' (pit) and 'ICArenaBloodworks', and the busier ruin 'XPCann04' ('Cann, Arena');
   * worldspaces 'Tamriel' and 'ICMarketDistrict' with exterior cells holding map markers named
     'Weye' and 'Market District';
   * an Imperial male NPC with hair/eyes/FaceGen and a CLOT item, to copy looks from.
@@ -87,15 +87,19 @@ def fake_esm(path: Path) -> Path:
             ("HCLR", b"\x40\x30\x20\x00"), ("FGGS", bytes(200)), ("FGGA", bytes(120)), ("FGTS", bytes(200)),
             ("FNAM", b"\x00\x00")])]),
     ]
-    arena = Rec("CELL", ARENA_CELL, [("EDID", zs("ArenaArenaFixture")), ("FULL", zs("Arena")), ("DATA", b"\x01")])
-    decoy = Rec("CELL", DECOY_CELL, [("EDID", zs("ArenaDecoyFixture")), ("FULL", zs("Arena Storage")),
+    arena = Rec("CELL", ARENA_CELL, [("EDID", zs("ICArena")), ("FULL", zs("Imperial City Arena")), ("DATA", b"\x01")])
+    decoy = Rec("CELL", DECOY_CELL, [("EDID", zs("ICArenaBloodworks")), ("FULL", zs("Arena Bloodworks")),
                                      ("DATA", b"\x01")])
+    ruin = Rec("CELL", 0x0000A004, [("EDID", zs("XPCann04")), ("FULL", zs("Cann, Arena")), ("DATA", b"\x01")])
+    ruin_refs = [Rec("REFR", 0x0000A500 + i, [("NAME", u32(0x0000E001)), ("DATA", pos(i * 64.0, 0.0, 0.0))])
+                 for i in range(20)]
     floor = [Rec("REFR", 0x0000A100 + i, [("NAME", u32(0x0000E001)), ("DATA", pos(i * 512.0, 0.0, 0.0))])
              for i in range(4)]
     shop = Rec("CELL", SHOP_CELL, [("EDID", zs("ICMarketShopFixture")), ("FULL", zs("A Shop")), ("DATA", b"\x01")])
     cells_body = (arena.to_bytes() + _cell_children(ARENA_CELL, [_door(ARENA_GATE, DECOY_DOOR, 0, -900)], floor)
                   + decoy.to_bytes() + _cell_children(DECOY_CELL, [_door(DECOY_DOOR, ARENA_GATE, 120, 340, 64)], [])
-                  + shop.to_bytes() + _cell_children(SHOP_CELL, [_door(SHOP_DOOR, STREET_DOOR, 41000, 25100, 10)], []))
+                  + shop.to_bytes() + _cell_children(SHOP_CELL, [_door(SHOP_DOOR, STREET_DOOR, 41000, 25100, 10)], [])
+                  + ruin.to_bytes() + _cell_children(0x0000A004, [], ruin_refs))
     groups.append(grup(b"CELL", 0, grup(struct.pack("<i", 1), 2, grup(struct.pack("<i", 0), 3, cells_body))))
     wrld = (Rec("WRLD", TAMRIEL, [("EDID", zs("Tamriel")), ("FULL", zs("Cyrodiil"))]).to_bytes()
             + _exterior(TAMRIEL, WEYE_CELL, 5, -3, [_marker(WEYE_MARKER, "Weye", 20800.0, -11000.0)])

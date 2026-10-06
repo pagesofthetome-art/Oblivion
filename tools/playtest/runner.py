@@ -32,6 +32,7 @@ from playtest import manifest as mf, platform as plat, profile, testcells, testl
 
 TOOLS = Path(__file__).resolve().parents[1]
 HUD = {1004, 1005, 1006, 1010, 1045}
+CHARGEN = {1029, 1030, 1031, 1032, 1033, 1036, 1051}     # birthsign, class, attributes, skills, race/name
 SAVE_NAME = "ForgePlaytestBase"
 
 
@@ -240,7 +241,8 @@ class _Profile:
         m, sess = self.m, self.sess
         sess.begin()
         sess.swap_in(m.plugins_txt, profile.plugins_txt(prep.active))
-        sess.swap_in(m.ini, profile.test_ini(self.real_ini, profile.display_overrides(self.p.desktop_size(),
+        self.display = self._display(sess)
+        sess.swap_in(m.ini, profile.test_ini(self.real_ini, profile.display_overrides(self.display["size"],
                                                                                       opts.bright)))
         # the pad should behave exactly as in the play setup: use its NorthernUI.ini for the run
         rel = Path("OBSE") / "Plugins" / "NorthernUI.ini"
@@ -261,6 +263,38 @@ class _Profile:
             sess.stage(dest, data=data, src=src, mtime=mt)
         return profile.load_order(m.data, prep.active)
 
+    def _display(self, sess) -> dict:
+        """Pick the render size so the whole frame is on screen under Windows display scaling.
+
+        Run 3: at 150 % scaling a DPI-unaware Oblivion.exe drew its 1920x1080 frame 1.5x larger
+        (2/3 visible). If the play copy's Oblivion.exe carries a DPI compatibility flag, the test exe
+        gets the same flag for the run (journaled) and renders at the physical size; otherwise the
+        test renders at the logical size and Windows scales it up to fill the screen.
+        """
+        m, p = self.m, self.p
+        phys = p.desktop_size()
+        scale = p.dpi_scale()
+        info = {"physical": list(phys) if phys else None, "scale": scale, "size": phys, "how": "desktop size"}
+        if not phys or scale <= 1.01:
+            return info
+        flags = []
+        for play in m.play_dirs:
+            exe = str(play / "Oblivion.exe")
+            flags = profile.dpi_flags(m.reg.get(exe)) or profile.dpi_flags(m.reg.get(exe, machine=True))
+            if flags:
+                break
+        if flags:
+            gog_exe = m.game_dir / "Oblivion.exe"
+            for exe in dict.fromkeys([str(gog_exe), str(gog_exe.resolve())]):
+                keep = [t for t in (m.reg.get(exe) or "").replace("~", " ").split() if t.upper() not in profile.DPI_TOKENS]
+                sess.set_layer(exe, "~ " + " ".join(keep + flags))
+            info.update(how=f"play copy's DPI flag {' '.join(flags)} set on the test exe for the run")
+        else:
+            info.update(size=(round(phys[0] / scale), round(phys[1] / scale)),
+                        how=f"logical size at {round(scale * 100)} % scaling (Windows scales it up)")
+        self.log(f"display: {info['size'][0]}x{info['size'][1]}, {info['how']}")
+        return info
+
     def __exit__(self, *exc):
         try:
             profile.restore(self.m, log=self.log)
@@ -271,6 +305,29 @@ class _Profile:
             if not all(v["same"] for v in self.check.values()):
                 self.log("WARNING: Plugins.txt or Oblivion.ini differ from before the test; see result.json")
         return False
+
+
+def clean_test_saves(m: profile.Machine, log, keep_base: bool = True) -> list[str]:
+    """Only in the test profile's own save folder (Saves\\ForgePlaytest): drop autosaves and
+    quicksaves, so Continue always loads the test save."""
+    gone = []
+    if m.save_dir.is_dir():
+        for f in sorted(m.save_dir.iterdir()):
+            if f.suffix.lower() in (".ess", ".obse", ".bak") and not (keep_base and f.stem == SAVE_NAME):
+                f.unlink()
+                gone.append(f.name)
+    if gone:
+        log(f"removed from the test save folder: {', '.join(gone)}")
+    return gone
+
+
+def _batch_files(chunks: list[dict]) -> list[tuple[str, bytes]]:
+    """Each batch as fptN.txt and as fptN: `bat fptN` finds it whether or not Oblivion adds .txt."""
+    out = []
+    for c in chunks:
+        data = ("\r\n".join(c["lines"]) + "\r\n").encode("cp1252")
+        out += [(c["file"], data), (c["file"][:-4], data)]
+    return out
 
 
 def _new_run_dir(m: profile.Machine) -> Path:
@@ -305,12 +362,15 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
             man = mf.build(t.plan, forms, location=loc.to_dict(), bring=testcells.BRING.get(loc.key, []),
                            plugin=t.plugin.name if t.plugin else None, spec=t.spec_name)
             mf.save(man, run_dir / "playtest_manifest.json")
-            for c in man["chunks"]:
-                prof.sess.stage(m.game_dir / c["file"], data=("\r\n".join(c["lines"]) + "\r\n").encode("cp1252"))
+            for name, data in _batch_files(man["chunks"]):
+                prof.sess.stage(m.game_dir / name, data=data)
+            if not opts.dry_run:
+                clean_test_saves(m, log)
             game_log = m.game_dir / mf.LOG_NAME
             prof.sess.collect(game_log)
             log(f"test profile on: {len(prep.active)} plugins: {', '.join(lo)}")
-            extra = {"boot_seconds": None, "froze": False, "dry_run": opts.dry_run, "location": loc.to_dict()}
+            extra = {"boot_seconds": None, "froze": False, "dry_run": opts.dry_run, "location": loc.to_dict(),
+                     "display": prof.display}
             if opts.dry_run:
                 log("dry run: profile built and staged; not launching")
             else:
@@ -330,8 +390,12 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
 
 def make_save(opts: Options, m: profile.Machine | None = None, p: plat.Platform | None = None,
               wait_minutes: float = 15.0) -> dict:
-    """One-time: Yuri starts a New Game with the pad; forge then puts the character in the arena and
-    saves it as Saves\\ForgePlaytest\\ForgePlaytestBase.ess (boot strategy B uses it)."""
+    """One-time: Yuri starts a New Game with the pad and finishes the character screen; forge then
+    puts the character in the arena, checks (in the log) that it really is there, and saves it as
+    Saves\\ForgePlaytest\\ForgePlaytestBase.ess. Boot plan B continues from it.
+
+    Run 3: a save made before the race/name screen brings that screen back on every load. So the
+    save is only made after the character screen was seen and closed, with no chargen menu open."""
     m = m or profile.Machine.detect()
     p = p or plat.default()
     log = opts.log
@@ -343,31 +407,50 @@ def make_save(opts: Options, m: profile.Machine | None = None, p: plat.Platform 
     with prof:
         prep = prepare(Target(None, mf.parse_plan(None), None), Options(cell=opts.cell), m)
         prof.apply(prep, opts)
+        loc = prep.location
+        probe = [f"con_SCOF {mf.LOG_NAME}", f"scof {mf.LOG_NAME}"]
+        if loc.setpos:
+            x, y, z, _ = loc.setpos
+            probe += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}"]
+        probe += [f"player.GetInCell {loc.cell_edid}" if loc.cell_edid else f"player.GetInWorldspace {loc.world_edid}",
+                  "scof 0"]
+        for name, data in _batch_files([{"file": "fptsave.txt", "lines": probe}]):
+            prof.sess.stage(m.game_dir / name, data=data)
+        game_log = m.game_dir / mf.LOG_NAME
+        prof.sess.collect(game_log)
+        clean_test_saves(m, log, keep_base=False)
+        drv = None
         try:
             drv = _launch(m, p, prof.sess, opts, t0, run_dir)["driver"]
-        except PlaytestError as exc:
-            res["error"] = str(exc)
-            drv = None
-        try:
-            if drv is None:
-                raise PlaytestError(res["error"])
             if not drv.wait_main_menu(opts.boot_timeout):
                 raise PlaytestError("the main menu never appeared")
-            log("\n  >>> With the pad: choose NEW, skip the intro (Cross), and finish the character screens any way"
-                " you like.\n  >>> Then just wait: forge takes over as soon as you can walk.\n")
-            if not drv.wait_in_game(wait_minutes * 60):
-                raise PlaytestError("never reached the game world")
-            drv.console(prep.location.boot)
-            if not drv.wait_loaded(opts.boot_timeout):
-                raise PlaytestError("the arena did not load")
+            p.beep()
+            log("\n  >>> With the pad: NEW, skip the intro (Cross). When the character screen opens, change"
+                " nothing\n  >>> and do NOT touch the name box: just choose DONE and confirm. Then wait;"
+                " forge takes over.\n")
+            if not drv.wait_chargen_done(wait_minutes * 60):
+                raise PlaytestError("the character screen was never finished")
+            drv.console(loc.boot)
+            if not (drv.wait_load_start(30) and drv.wait_loaded(opts.boot_timeout)):
+                raise PlaytestError(f"`{loc.boot}` did not load")
+            drv.idle(1.0)
+            drv.run_batch("bat fptsave", game_log)
+            drv.idle(2.0)
+            text = game_log.read_text("cp1252", "replace") if game_log.is_file() else ""
+            res["probe"] = text.strip().splitlines()[-3:]
+            if not any(">>" in l and l.strip().endswith(("1", "1.00")) for l in text.splitlines()):
+                drv.shot("not-there")
+                raise PlaytestError(f"`{loc.boot}` did not put the character in {loc.label}; not saving "
+                                    f"(log: {res['probe'] or 'empty'})")
+            drv.shot("arena")
             drv.console(f"save {SAVE_NAME}")
             drv.idle(5)
             save = m.save_dir / f"{SAVE_NAME}.ess"
             res["made"] = save.is_file()
             res["save"] = str(save)
-            drv.shot("save-done")
             drv.console("qqq")
             drv.until_exit()
+            clean_test_saves(m, log)
         except Exception as exc:
             res["error"] = str(exc)
             if drv is not None:
@@ -651,36 +734,28 @@ class Driver:
             self.shot("no-main-menu")
             raise PlaytestError(f"the main menu never appeared (menus {self._menus()})")
         self.shot("main-menu")
-        # Strategy A: console at the main menu
+        if has_save:
+            return self._boot_continue(command)
+        # Plan A (no test save yet): the console at the main menu
         self.phase = "boot-A-menu-console"
         self.console(command, at_menu=True)
         self.note(f"A: typed `{command}` at the main menu")
         if self.wait_load_start(20):
             if self.wait_loaded(self.opts.boot_timeout):
-                if not has_save:
-                    return "A: console at the main menu"
-                # With a test save, the Enter could have hit Continue instead of the console:
-                # repeat the command in game so the location is right either way.
-                self.idle(1.0)
-                self.console(command)
-                if self.wait_load_start(15) and self.wait_loaded(self.opts.boot_timeout):
-                    return "A: console at the main menu (+ again in game)"
-                self.shot("A-recoc-timeout")
-                raise PlaytestError(f"`{command}` from the in-game console did not load")
+                return "A: console at the main menu"
             self.shot("A-load-timeout")
             raise PlaytestError(f"the load after `{command}` never finished (menus {self._menus()})")
         self.shot("A-no-load")
         self.note(f"A failed: still at the main menu 20 s after `{command}` (menus {self._menus()})")
-        if not has_save:
-            raise PlaytestError("the main-menu console did not start a game, and there is no test save for "
-                                "plan B. Run `forge playtest make-save` once, then try again. Screenshots: "
-                                f"{self.shots}")
-        # Strategy B: Yuri presses Cross on CONTINUE (newest save in Saves\ForgePlaytest), then the
-        # console in game. Keys at the main menu are not reliable (run 2: Enter did nothing, Down+Enter
-        # opened a message box), so this one press is his.
+        raise PlaytestError("the main-menu console did not start a game, and there is no test save for "
+                            "plan B. Run `forge playtest make-save` once, then try again. Screenshots: "
+                            f"{self.shots}")
+
+    def _boot_continue(self, command: str) -> str:
+        """Plan B: Yuri presses Cross on CONTINUE (the test save), then the console in game.
+        Forge never presses keys in the main menu (run 2: Down+Enter opened a message box)."""
         self.phase = "boot-B-continue"
         self._focus()
-        self.p.press("esc")                               # close the console if A left it open
         self.p.beep()
         self.opts.log("\n  >>> BEEP: press Cross on CONTINUE (the test save). Forge does the rest.\n")
         self.note("B: waiting for Continue (Cross on the pad)")
@@ -691,11 +766,33 @@ class Driver:
             self.shot("B-load-timeout")
             raise PlaytestError("the test save never finished loading")
         self.idle(1.0)
+        if CHARGEN & set(self._menus()):
+            self.shot("B-chargen")
+            raise PlaytestError("the test save was made before character creation (the race/name screen "
+                                "opened). Run `forge playtest make-save` again.")
         self.console(command)
         if not (self.wait_load_start(15) and self.wait_loaded(self.opts.boot_timeout)):
             self.shot("B-coc-timeout")
             raise PlaytestError(f"`{command}` from the in-game console did not load")
         return "B: Continue + in-game console"
+
+    def wait_chargen_done(self, timeout: float) -> bool:
+        """The race/name screen was open and is closed again, and the player is in control."""
+        self.phase = "wait-chargen"
+        end = self.p.now() + timeout
+        seen = False
+        while self.p.now() < end:
+            self.tick()
+            menus = set(self._menus())
+            if menus & CHARGEN:
+                if not seen:
+                    self.note("character screen open")
+                seen = True
+            elif seen and self.wait_in_game(10) and not (set(self._menus()) & CHARGEN):
+                self.note("character screen done")
+                return True
+            self.p.sleep(0.5)
+        return False
 
     # -- console
     def _focus(self) -> bool:
@@ -732,9 +829,12 @@ class Driver:
                 if self.p.hung(self.p.window(self.pid)):
                     self.idle(self.opts.hang_seconds + 1)     # a freeze: let tick() confirm and close it
                 raise PlaytestError(f"the console did not open; not typing into the game (state {self._state()})")
-        if not self.p.focused(self.pid):
+        if not self.p.focused(self.pid) and not self._focus():
             raise PlaytestError("the test game lost focus while typing")
         self.p.type_text(command)
+        self.shot("typed-" + command.split()[0])
+        if not self.p.focused(self.pid):
+            raise PlaytestError("the test game lost focus while typing (nothing was sent)")
         self.p.press("enter")
         self.p.sleep(0.3)
 

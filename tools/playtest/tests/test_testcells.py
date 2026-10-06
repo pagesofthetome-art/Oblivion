@@ -85,17 +85,23 @@ class VanillaTests(unittest.TestCase):
 
     def test_defaults(self):
         a = vanilla.resolve("arena", self.idx)
-        self.assertEqual((a.boot, a.cell_edid), ("coc ArenaArenaFixture", "ArenaArenaFixture"),
-                         "'Arena Storage' is a side room and excluded")
-        self.assertEqual(a.setpos, [120.0, 340.0, 64.0, 1.5], "stands where the gate lets you in")
+        self.assertEqual((a.boot, a.cell_edid), ("coc ICArena", "ICArena"),
+                         "pinned to ICArena, not the busier 'Cann, Arena' ruin (run 3)")
+        self.assertEqual(a.setpos, [120.0, 340.0, 64.0, 1.5], "arrives through the Bloodworks gate")
+        self.assertIn("arriving from ICArenaBloodworks", a.detail)
         s = vanilla.resolve("street", self.idx)
         self.assertEqual((s.boot, s.world_edid), ("cow ICMarketDistrict 10 6", "ICMarketDistrict"))
         self.assertEqual(s.setpos[:2], [41000.0, 25100.0], "outside a shop door")
         o = vanilla.resolve("weather", self.idx)
         self.assertEqual(o.boot, "cow Tamriel 5 -3")
 
+    def test_arena_fallback_never_picks_the_ruin(self):
+        idx = dict(self.idx, interiors=[c for c in self.idx["interiors"] if c["edid"] != "ICArena"])
+        with self.assertRaises(vanilla.VanillaError):
+            vanilla.resolve("arena", idx)                  # ICArenaBloodworks is a side room; never the ruin
+
     def test_custom_and_errors(self):
-        self.assertEqual(vanilla.resolve("ArenaDecoyFixture", self.idx).boot, "coc ArenaDecoyFixture")
+        self.assertEqual(vanilla.resolve("ICArenaBloodworks", self.idx).boot, "coc ICArenaBloodworks")
         self.assertEqual(vanilla.resolve("marker:Weye", self.idx).moveto, "0000C001")
         with self.assertRaises(vanilla.VanillaError):
             vanilla.resolve("NoSuchCell", self.idx)
