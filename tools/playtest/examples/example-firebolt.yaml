@@ -1,0 +1,29 @@
+# Playtest example: a fire bolt hits the arena dummy.
+#   forge playtest tools\playtest\examples\example-firebolt.yaml
+# Until Track B builds `kind: plugin`, playtest.build_example makes ForgeExampleFirebolt.esp.
+forge_spec: 1
+name: example-firebolt
+kind: plugin
+status: example
+intent: A novice fire bolt (25 fire damage on target) that visibly hurts the arena training dummy.
+output:
+  plugin: ForgeExampleFirebolt.esp
+  version: "1.0"
+inputs: []
+dependencies:
+  masters: [Oblivion.esm]
+  runtime: [xOBSE 22.x]
+playtest:
+  build_example: firebolt          # stand-in builder (tools/playtest/examples)
+test_plan:
+  cell: arena
+  notes:
+    - Cast it at the dummy yourself with R1 and watch the health bar drop.
+  steps:
+    - addspell: ForgeExampleFireboltSpell
+    - check: {ref: player, fn: HasSpell, args: [ForgeExampleFireboltSpell], expect: "== 1"}
+    - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], save: hp_before}
+    - cast: {caster: ForgeArenaCasterRef, spell: ForgeExampleFireboltSpell, target: ForgeArenaDummyRef}
+    - wait: 3
+    - check: {ref: ForgeArenaDummyRef, fn: GetAV, args: [Health], expect: "< $hp_before"}
+    - check: {ref: ForgeArenaDummyRef, fn: GetDead, expect: "== 0"}

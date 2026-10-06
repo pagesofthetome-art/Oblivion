@@ -7,6 +7,12 @@
     forge package <spec> [--out DIR]        zip the last build for Vortex (plugin + readme)
     forge compare <a.esp> <b.esp> [--json]  byte-identical / record-identical / different
 
+Playtest (tools/playtest, see its README):
+    forge playtest <spec|esp> [--cell arena|street|open] [--quit] [--dry-run]   quick-boot test + checks
+    forge playtest restore|status|cells     put the real Plugins.txt/ini back, show state, build the cells
+    forge test [RUN_DIR] [--json]           report of the last (or a given) playtest run
+    forge preview <spec|esp|cells> [--open] browser preview of the test cell / the mod's placed objects
+
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
     forge xedit ...                                          -> tools/xedit_run.py
@@ -408,6 +414,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out"); p.set_defaults(fn=cmd_package)
     p = sub.add_parser("compare"); p.add_argument("a"); p.add_argument("b")
     p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_compare)
+    from playtest import cli as playtest_cli
+    playtest_cli.register(sub)
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)
