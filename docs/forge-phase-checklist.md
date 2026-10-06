@@ -41,9 +41,12 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [ ] Phase 2b: fill `engine_*` from COEF and the xOBSE headers.
 - Gaps: UESP is unreachable from the cloud, so vanilla functions have no UESP descriptions. Their parameters come from the PC exe export. The ORC hang needs a real write-up.
 
-## Phase 3: records and scripts from the spec
-- [ ] `kind: plugin` builds records; scripts compile through the CS bridge (`script.compile`).
-- [ ] Test: a fire-bolt variant spell builds, compiles, lints clean and works in game.
+## Phase 3: records and scripts from the spec (in progress; plan: `docs/forge-phase3-plan.md`)
+- [x] `forge dump <plugin> <EDID|FormID>`: decodes subrecords with the KB schemas (read-only); the ground-truth tool for the encoder.
+- [ ] PC recon (`docs/19-forge-phase3-pc-recon-handoff.md`): vanilla fire-bolt SPEL / FIDG MGEF / SEFF script bytes, CS bridge readiness, test-profile isolation facts.
+- [ ] 3a: record encoder + `kind: plugin` + FormID map (`<name>.ids.json`, append-only). PC test: re-encode every vanilla SPEL and MGEF byte for byte.
+- [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
+- [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 
 ## Phase 4: primitives
 - [ ] Pocket dimension with a return point that survives save and reload.

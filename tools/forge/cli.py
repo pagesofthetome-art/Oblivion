@@ -7,6 +7,7 @@
     forge package <spec> [--out DIR]        zip the last build for Vortex (plugin + readme)
     forge compare <a.esp> <b.esp> [--json]  byte-identical / record-identical / different
     forge kb <command> ...                  knowledge store (forge kb --help)
+    forge dump <plugin> <EDID|FormID>       decode a record's subrecords (read-only)
 
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
@@ -391,6 +392,9 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and (argv[0] in MODLINT_CMDS or argv[0] in WRAPPED):
         return run_wrapped(argv[0], argv[1:])
+    if argv and argv[0] == "dump":
+        from forge.dump import main as dump_main
+        return dump_main(argv[1:])
     if argv and argv[0] == "kb":
         from forge.kb.cli import main as kb_main
         return kb_main(argv[1:])
@@ -413,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("compare"); p.add_argument("a"); p.add_argument("b")
     p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_compare)
     sub.add_parser("kb", help="knowledge store: forge kb --help")
+    sub.add_parser("dump", help="decode a record's subrecords: forge dump <plugin> <EDID|FormID>")
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)
