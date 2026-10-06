@@ -259,6 +259,16 @@
    "evidence": "byte-identical to the legacy script with its loop in load order",
    "confidence": "HIGH_CONFIDENCE",
    "source": "docs/forge-phase-checklist.md"
+  },
+  {
+   "id": "phase2-kb-pc",
+   "test": "scripts\\kb\\Build forge KB.bat (test_kb_queries + test_kb_export + test_kb_ranking_noise)",
+   "subject": "forge-kb.sqlite",
+   "result": "pass (20/20 questions; 41 tests, 0 skips)",
+   "date": "2026-10-06",
+   "evidence": "PC run 2 at 41b5923 on the GOG copy: 58,845 vanilla forms, 369 script + 131 console commands exported",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "kb_log.txt (PC run 2), docs/forge-phase-checklist.md"
   }
  ]
 }
