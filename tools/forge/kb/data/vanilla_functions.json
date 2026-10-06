@@ -1,0 +1,1776 @@
+{
+ "vim_names": [
+  "Activate",
+  "AddAchievement",
+  "AddFlames",
+  "AddItem",
+  "AddScriptPackage",
+  "AddSpell",
+  "AddTopic",
+  "AdvSkill",
+  "AdvancePCLevel",
+  "AdvancePCSkill",
+  "Autosave",
+  "CanHaveFlames",
+  "CanPayCrimeGold",
+  "Cast",
+  "ClearOwnership",
+  "CloseCurrentOblivionGate",
+  "CloseOblivionGate",
+  "CompleteQuest",
+  "CreateFullActorCopy",
+  "DeleteFullActorCopy",
+  "Disable",
+  "DisableLinkedPathPoints",
+  "DisablePlayerControls",
+  "Dispel",
+  "DispelAllSpells",
+  "Drop",
+  "DropMe",
+  "DuplicateAllItems",
+  "DuplicateNPCStats",
+  "Enable",
+  "EnableFastTravel",
+  "EnableLinkedPathPoints",
+  "EnablePlayerControls",
+  "EquipItem",
+  "EssentialDeathReload",
+  "EvaluatePackage",
+  "ForceAV",
+  "ForceActorValue",
+  "ForceCloseOblivionGate",
+  "ForceFlee",
+  "ForceTakeCover",
+  "ForceWeather",
+  "GetAV",
+  "GetActionRef",
+  "GetActorValue",
+  "GetAlarmed",
+  "GetAmountSoldStolen",
+  "GetAngle",
+  "GetArmorRating",
+  "GetArmorRatingUpperBody",
+  "GetAttacked",
+  "GetBarterGold",
+  "GetBaseAV",
+  "GetBaseActorValue",
+  "GetButtonPressed",
+  "GetClassDefaultMatch",
+  "GetClothingValue",
+  "GetContainer",
+  "GetCrime",
+  "GetCrimeGold",
+  "GetCrimeKnown",
+  "GetCurrentAIPackage",
+  "GetCurrentAIProcedure",
+  "GetCurrentTime",
+  "GetCurrentWeatherPercent",
+  "GetDayOfWeek",
+  "GetDead",
+  "GetDeadCount",
+  "GetDestroyed",
+  "GetDetected",
+  "GetDetectionLevel",
+  "GetDisabled",
+  "GetDisposition",
+  "GetDistance",
+  "GetDoorDefaultOpen",
+  "GetEquipped",
+  "GetFactionRank",
+  "GetFactionRankDifference",
+  "GetFactionReaction",
+  "GetFatiguePercentage",
+  "GetForceRun",
+  "GetForceSneak",
+  "GetFriendHit",
+  "GetFurnitureMarkerID",
+  "GetGS",
+  "GetGameSetting",
+  "GetGlobalValue",
+  "GetGold",
+  "GetHeadingAngle",
+  "GetIdleDoneOnce",
+  "GetIgnoreFriendlyHits",
+  "GetInCell",
+  "GetInCellParam",
+  "GetInFaction",
+  "GetInSameCell",
+  "GetInWorldspace",
+  "GetInvestmentGold",
+  "GetIsAlerted",
+  "GetIsClass",
+  "GetIsClassDefault",
+  "GetIsCreature",
+  "GetIsCurrentPackage",
+  "GetIsCurrentWeather",
+  "GetIsGhost",
+  "GetIsID",
+  "GetIsPlayableRace",
+  "GetIsPlayerBirthsign",
+  "GetIsRace",
+  "GetIsReference",
+  "GetIsSex",
+  "GetIsUsedItem",
+  "GetIsUsedItemType",
+  "GetItemCount",
+  "GetKnockedState",
+  "GetLOS",
+  "GetLevel",
+  "GetLockLevel",
+  "GetLocked",
+  "GetMenuHasTrait",
+  "GetName",
+  "GetNoRumors",
+  "GetOffersServicesNow",
+  "GetOpenState",
+  "GetPCExpelled",
+  "GetPCFactionAttack",
+  "GetPCFactionMurder",
+  "GetPCFactionSteal",
+  "GetPCFactionSubmitAuthority",
+  "GetPCFame",
+  "GetPCInFaction",
+  "GetPCInfamy",
+  "GetPCIsClass",
+  "GetPCIsRace",
+  "GetPCIsSex",
+  "GetPCMiscStat",
+  "GetPCSleepHours",
+  "GetPackageTarget",
+  "GetParentRef",
+  "GetPersuasionNumber",
+  "GetPlayerControlsDisabled",
+  "GetPlayerHasLastRiddenHorse",
+  "GetPlayerInSEWorld",
+  "GetPos",
+  "GetQuestRunning",
+  "GetQuestVariable",
+  "GetRandomPercent",
+  "GetRestrained",
+  "GetScale",
+  "GetScriptVariable",
+  "GetSecondsPassed",
+  "GetSelf",
+  "GetShouldAttack",
+  "GetSitting",
+  "GetSleeping",
+  "GetStage",
+  "GetStageDone",
+  "GetStartingAngle",
+  "GetStartingPos",
+  "GetTalkedToPC",
+  "GetTalkedToPCParam",
+  "GetTimeDead",
+  "GetTotalPersuasionNumber",
+  "GetTrespassWarningLevel",
+  "GetUnconscious",
+  "GetUsedItemActivate",
+  "GetUsedItemLevel",
+  "GetVampire",
+  "GetWalkSpeed",
+  "GetWeaponAnimType",
+  "GetWeaponSkillType",
+  "GetWindSpeed",
+  "GoToJail",
+  "HasFlames",
+  "HasMagicEffect",
+  "HasVampireFed",
+  "IsActionRef",
+  "IsActor",
+  "IsActorAVictim",
+  "IsActorDetected",
+  "IsActorEvil",
+  "IsActorUsingATorch",
+  "IsActorsAIOff",
+  "IsAnimPlayer",
+  "IsCellOwner",
+  "IsCloudy",
+  "IsContinuingPackagePCNear",
+  "IsCurrentFurnitureObj",
+  "IsCurrentFurnitureRef",
+  "IsEssential",
+  "IsFacingUp",
+  "IsGuard",
+  "IsHorseStolen",
+  "IsIdlePlaying",
+  "IsInCombat",
+  "IsInDangerousWater",
+  "IsInInterior",
+  "IsInMyOwnedCell",
+  "IsLeftUp",
+  "IsOwner",
+  "IsPCAMurderer",
+  "IsPCSleeping",
+  "IsPlayerInJail",
+  "IsPlayerMovingIntoNewSpace",
+  "IsPlayersLastRiddenHorse",
+  "IsPleasant",
+  "IsRaining",
+  "IsRidingHorse",
+  "IsRunning",
+  "IsShieldOut",
+  "IsSneaking",
+  "IsSnowing",
+  "IsSpellTarget",
+  "IsSwimming",
+  "IsTalking",
+  "IsTimePassing",
+  "IsTorchOut",
+  "IsTrespassing",
+  "IsTurnArrest",
+  "IsWaiting",
+  "IsWeaponOut",
+  "IsXBox",
+  "IsYielding",
+  "Kill",
+  "KillActor",
+  "KillAllActors",
+  "Lock",
+  "Look",
+  "LoopGroup",
+  "Message",
+  "MessageBox",
+  "ModAV",
+  "ModActorValue",
+  "ModAmountSoldStolen",
+  "ModBarterGold",
+  "ModCrimeGold",
+  "ModDisposition",
+  "ModFactionRank",
+  "ModFactionReaction",
+  "ModPCAttribute",
+  "ModPCA",
+  "ModPCFame",
+  "ModPCInfamy",
+  "ModPCMiscStat",
+  "ModPCSkill",
+  "ModPCS",
+  "ModScale",
+  "MoveTo",
+  "MoveToMarker",
+  "PCB",
+  "PayFine",
+  "PayFineThief",
+  "PickIdle",
+  "PlaceAtMe",
+  "PlayBink",
+  "PlayGroup",
+  "PlayMagicEffectVisuals",
+  "PlayMagicShaderVisuals",
+  "PlaySound",
+  "PlaySound3D",
+  "PositionCell",
+  "PositionWorld",
+  "PreloadMagicEffect",
+  "PurgeCellBuffers",
+  "PushActorAway",
+  "RefreshTopicList",
+  "ReleaseWeatherOverride",
+  "RemoveAllItems",
+  "RemoveFlames",
+  "RemoveItem",
+  "RemoveMe",
+  "RemoveScriptPackage",
+  "RemoveSpell",
+  "Reset3DState",
+  "ResetFallDamageTimer",
+  "ResetHealth",
+  "ResetInterior",
+  "Resurrect",
+  "Rotate",
+  "SCAOnActor",
+  "SameFaction",
+  "SameFactionAsPC",
+  "SameRace",
+  "SameRaceAsPC",
+  "SameSex",
+  "SameSexAsPC",
+  "Say",
+  "SayTo",
+  "ScriptEffectElapsedSeconds",
+  "SelectPlayerSpell",
+  "SendTrespassAlarm",
+  "SetAV",
+  "SetActorAlpha",
+  "SetActorFullName",
+  "SetActorRefraction",
+  "SetActorValue",
+  "SetActorsAI",
+  "SetAlert",
+  "SetAllReachable",
+  "SetAllVisible",
+  "SetAngle",
+  "SetAtStart",
+  "SetBarterGold",
+  "SetCellFullName",
+  "SetCellOwnership",
+  "SetCellPublicFlag",
+  "SetClass",
+  "SetCrimeGold",
+  "SetDestroyed",
+  "SetDoorDefaultOpen",
+  "SetEssential",
+  "SetFactionRank",
+  "SetFactionReaction",
+  "SetForceRun",
+  "SetForceSneak",
+  "SetGhost",
+  "SetIgnoreFriendlyHits",
+  "SetInCharGen",
+  "SetInvestmentGold",
+  "SetItemValue",
+  "SetLevel",
+  "SetNoAvoidance",
+  "SetNoRumors",
+  "SetOpenState",
+  "SetOwnership",
+  "SetPCExpelled",
+  "SetPCFactionAttack",
+  "SetPCFactionMurder",
+  "SetPCFactionSteal",
+  "SetPCFactionSubmitAuthority",
+  "SetPCFame",
+  "SetPCInfamy",
+  "SetPCSleepHours",
+  "SetPackDuration",
+  "SetPlayerBirthsign",
+  "SetPlayerInSEWorld",
+  "SetPos",
+  "SetQuestObject",
+  "SetRestrained",
+  "SetRigidBodyMass",
+  "SetScale",
+  "SetSceneIsComplex",
+  "SetShowQuestItems",
+  "SetSize",
+  "SetStage",
+  "SetUnconscious",
+  "SetWeather",
+  "ShowBirthsignMenu",
+  "ShowClassMenu",
+  "ShowDialogSubtitles",
+  "ShowEnchantment",
+  "ShowMap",
+  "ShowRaceMenu",
+  "ShowSpellMaking",
+  "SkipAnim",
+  "StartCombat",
+  "StartConversation",
+  "StartQuest",
+  "StopCombat",
+  "StopCombatAlarmOnActor",
+  "StopLook",
+  "StopMagicEffectVisuals",
+  "StopMagicShaderVisuals",
+  "StopQuest",
+  "StopWaiting",
+  "StreamMusic",
+  "This",
+  "ToggleActorsAI",
+  "TrapUpdate",
+  "TriggerHitShader",
+  "UnequipItem",
+  "Unlock",
+  "VampireFeed",
+  "Wait",
+  "WakeUpPC",
+  "WhichServiceMenu",
+  "Yield",
+  "evp",
+  "pms",
+  "saa",
+  "sms"
+ ],
+ "condition_functions": [
+  {
+   "index": 1,
+   "name": "GetDistance",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 5,
+   "name": "GetLocked",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 6,
+   "name": "GetPos",
+   "param_types": [
+    "Axis"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 8,
+   "name": "GetAngle",
+   "param_types": [
+    "Axis"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 10,
+   "name": "GetStartingPos",
+   "param_types": [
+    "Axis"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 11,
+   "name": "GetStartingAngle",
+   "param_types": [
+    "Axis"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 12,
+   "name": "GetSecondsPassed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 14,
+   "name": "GetActorValue",
+   "param_types": [
+    "ActorValue"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 18,
+   "name": "GetCurrentTime",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 24,
+   "name": "GetScale",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 27,
+   "name": "GetLineOfSight",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 32,
+   "name": "GetInSameCell",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 35,
+   "name": "GetDisabled",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 36,
+   "name": "MenuMode",
+   "param_types": [
+    "MenuMode"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 39,
+   "name": "GetDisease",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 40,
+   "name": "GetVampire",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 41,
+   "name": "GetClothingValue",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 42,
+   "name": "SameFaction",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 43,
+   "name": "SameRace",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 44,
+   "name": "SameSex",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 45,
+   "name": "GetDetected",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 46,
+   "name": "GetDead",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 47,
+   "name": "GetItemCount",
+   "param_types": [
+    "InventoryObject"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 48,
+   "name": "GetGold",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 49,
+   "name": "GetSleeping",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 50,
+   "name": "GetTalkedToPC",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 53,
+   "name": "GetScriptVariable",
+   "param_types": [
+    "Reference",
+    "VariableName"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 56,
+   "name": "GetQuestRunning",
+   "param_types": [
+    "Quest"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 58,
+   "name": "GetStage",
+   "param_types": [
+    "Quest"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 59,
+   "name": "GetStageDone",
+   "param_types": [
+    "Quest",
+    "QuestStage"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 60,
+   "name": "GetFactionRankDifference",
+   "param_types": [
+    "Faction",
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 61,
+   "name": "GetAlarmed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 62,
+   "name": "IsRaining",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 63,
+   "name": "GetAttacked",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 64,
+   "name": "GetIsCreature",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 65,
+   "name": "GetLockLevel",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 66,
+   "name": "GetShouldAttack",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 67,
+   "name": "GetInCell",
+   "param_types": [
+    "Cell"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 68,
+   "name": "GetIsClass",
+   "param_types": [
+    "Class"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 69,
+   "name": "GetIsRace",
+   "param_types": [
+    "Race"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 70,
+   "name": "GetIsSex",
+   "param_types": [
+    "Sex"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 71,
+   "name": "GetInFaction",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 72,
+   "name": "GetIsID",
+   "param_types": [
+    "BaseObject"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 73,
+   "name": "GetFactionRank",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 74,
+   "name": "GetGlobalValue",
+   "param_types": [
+    "Global"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 75,
+   "name": "IsSnowing",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 76,
+   "name": "GetDisposition",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 77,
+   "name": "GetRandomPercent",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 79,
+   "name": "GetQuestVariable",
+   "param_types": [
+    "Quest",
+    "VariableName"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 80,
+   "name": "GetLevel",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 81,
+   "name": "GetArmorRating",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 84,
+   "name": "GetDeadCount",
+   "param_types": [
+    "ActorBase"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 91,
+   "name": "GetIsAlerted",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 98,
+   "name": "GetPlayerControlsDisabled",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 99,
+   "name": "GetHeadingAngle",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 101,
+   "name": "IsWeaponOut",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 102,
+   "name": "IsTorchOut",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 103,
+   "name": "IsShieldOut",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 104,
+   "name": "IsYielding",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 106,
+   "name": "IsFacingUp",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 107,
+   "name": "GetKnockedState",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 108,
+   "name": "GetWeaponAnimType",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 109,
+   "name": "GetWeaponSkillType",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 110,
+   "name": "GetCurrentAIPackage",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 111,
+   "name": "IsWaiting",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 112,
+   "name": "IsIdlePlaying",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 116,
+   "name": "GetCrimeGold",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 122,
+   "name": "GetCrime",
+   "param_types": [
+    "Actor",
+    "CrimeType"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 125,
+   "name": "IsGuard",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 127,
+   "name": "CanPayCrimeGold",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 128,
+   "name": "GetFatiguePercentage",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 129,
+   "name": "GetPCIsClass",
+   "param_types": [
+    "Class"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 130,
+   "name": "GetPCIsRace",
+   "param_types": [
+    "Race"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 131,
+   "name": "GetPCIsSex",
+   "param_types": [
+    "Sex"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 132,
+   "name": "GetPCInFaction",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 133,
+   "name": "SameFactionAsPC",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 134,
+   "name": "SameRaceAsPC",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 135,
+   "name": "SameSexAsPC",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 136,
+   "name": "GetIsReference",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 141,
+   "name": "IsTalking",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 142,
+   "name": "GetWalkSpeed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 143,
+   "name": "GetCurrentAIProcedure",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 144,
+   "name": "GetTrespassWarningLevel",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 145,
+   "name": "IsTrespassing",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 146,
+   "name": "IsInMyOwnedCell",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 147,
+   "name": "GetWindSpeed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 148,
+   "name": "GetCurrentWeatherPercent",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 149,
+   "name": "GetIsCurrentWeather",
+   "param_types": [
+    "Weather"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 150,
+   "name": "IsContinuingPackagePCNear",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 153,
+   "name": "CanHaveFlames",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 154,
+   "name": "HasFlames",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 157,
+   "name": "GetOpenState",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 159,
+   "name": "GetSitting",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 160,
+   "name": "GetFurnitureMarkerID",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 161,
+   "name": "GetIsCurrentPackage",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 162,
+   "name": "IsCurrentFurnitureRef",
+   "param_types": [
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 163,
+   "name": "IsCurrentFurnitureObj",
+   "param_types": [
+    "Furniture"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 170,
+   "name": "GetDayOfWeek",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 171,
+   "name": "IsPlayerInJail",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 172,
+   "name": "GetTalkedToPCParam",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 175,
+   "name": "IsPCSleeping",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 176,
+   "name": "IsPCAMurderer",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 180,
+   "name": "GetDetectionLevel",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 182,
+   "name": "GetEquipped",
+   "param_types": [
+    "InventoryObject"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 185,
+   "name": "IsSwimming",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 190,
+   "name": "GetAmountSoldStolen",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 193,
+   "name": "GetPCExpelled",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 195,
+   "name": "GetPCFactionMurder",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 197,
+   "name": "GetPCFactionSteal",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 199,
+   "name": "GetPCFactionAttack",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 201,
+   "name": "GetPCFactionSubmitAuthority",
+   "param_types": [
+    "Faction"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 203,
+   "name": "GetDestroyed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 214,
+   "name": "HasMagicEffect",
+   "param_types": [
+    "MagicEffect"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 215,
+   "name": "GetDoorDefaultOpen",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 223,
+   "name": "IsSpellTarget",
+   "param_types": [
+    "MagicItem"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 224,
+   "name": "GetIsPlayerBirthsign",
+   "param_types": [
+    "Birthsign"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 225,
+   "name": "GetPersuasionNumber",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 227,
+   "name": "HasVampireFed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 228,
+   "name": "GetIsClassDefault",
+   "param_types": [
+    "Class"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 229,
+   "name": "GetClassDefaultMatch",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 230,
+   "name": "GetInCellParam",
+   "param_types": [
+    "Cell",
+    "Reference"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 237,
+   "name": "GetIsGhost",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 242,
+   "name": "GetUnconscious",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 244,
+   "name": "GetRestrained",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 246,
+   "name": "GetIsUsedItem",
+   "param_types": [
+    "BaseObject"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 247,
+   "name": "GetIsUsedItemType",
+   "param_types": [
+    "FormType"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 249,
+   "name": "GetPCFame",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 251,
+   "name": "GetPCInfamy",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 254,
+   "name": "GetIsPlayableRace",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 255,
+   "name": "GetOffersServicesNow",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 258,
+   "name": "GetUsedItemLevel",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 259,
+   "name": "GetUsedItemActivate",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 264,
+   "name": "GetBarterGold",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 265,
+   "name": "IsTimePassing",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 266,
+   "name": "IsPleasant",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 267,
+   "name": "IsCloudy",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 274,
+   "name": "GetArmorRatingUpperBody",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 277,
+   "name": "GetBaseActorValue",
+   "param_types": [
+    "ActorValue"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 278,
+   "name": "IsOwner",
+   "param_types": [
+    "Owner"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 280,
+   "name": "IsCellOwner",
+   "param_types": [
+    "Cell",
+    "Owner"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 282,
+   "name": "IsHorseStolen",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 285,
+   "name": "IsLeftUp",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 286,
+   "name": "IsSneaking",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 287,
+   "name": "IsRunning",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 288,
+   "name": "GetFriendHit",
+   "param_types": [
+    "Actor"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 289,
+   "name": "IsInCombat",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 300,
+   "name": "IsInInterior",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 305,
+   "name": "GetInvestmentGold",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 306,
+   "name": "IsActorUsingATorch",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 309,
+   "name": "IsXBox",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 310,
+   "name": "GetInWorldspace",
+   "param_types": [
+    "WorldSpace"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 312,
+   "name": "GetPCMiscStat",
+   "param_types": [
+    "MiscStat"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 313,
+   "name": "IsActorEvil",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 314,
+   "name": "IsActorAVictim",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 315,
+   "name": "GetTotalPersuasionNumber",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 318,
+   "name": "GetIdleDoneOnce",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 320,
+   "name": "GetNoRumors",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 323,
+   "name": "WhichServiceMenu",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 327,
+   "name": "IsRidingHorse",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 329,
+   "name": "IsTurnArrest",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 332,
+   "name": "IsInDangerousWater",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 338,
+   "name": "GetIgnoreFriendlyHits",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 339,
+   "name": "IsPlayersLastRiddenHorse",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 353,
+   "name": "IsActor",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 354,
+   "name": "IsEssential",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 358,
+   "name": "IsPlayerMovingIntoNewSpace",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 361,
+   "name": "GetTimeDead",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 362,
+   "name": "GetPlayerHasLastRiddenHorse",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 365,
+   "name": "GetPlayerInSEWorld",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 1107,
+   "name": "IsAmmo",
+   "param_types": [
+    "InventoryObject"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 1122,
+   "name": "HasSpell",
+   "param_types": [
+    "Spell"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 1124,
+   "name": "IsClassSkill",
+   "param_types": [
+    "ActorValue",
+    "Class"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 1254,
+   "name": "GetActorLightAmount",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 1884,
+   "name": "GetPCTrainingSessionsUsed",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2213,
+   "name": "GetPackageOffersServices",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2214,
+   "name": "GetPackageMustReachLocation",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2215,
+   "name": "GetPackageMustComplete",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2216,
+   "name": "GetPackageLockDoorsAtStart",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2217,
+   "name": "GetPackageLockDoorsAtEnd",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2218,
+   "name": "GetPackageLockDoorsAtLocation",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2219,
+   "name": "GetPackageUnlockDoorsAtStart",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2220,
+   "name": "GetPackageUnlockDoorsAtEnd",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2221,
+   "name": "GetPackageUnlockDoorsAtLocation",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2222,
+   "name": "GetPackageContinueIfPCNear",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2223,
+   "name": "GetPackageOncePerDay",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2224,
+   "name": "GetPackageSkipFalloutBehavior",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2225,
+   "name": "GetPackageAlwaysRun",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2226,
+   "name": "GetPackageAlwaysSneak",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2227,
+   "name": "GetPackageAllowSwimming",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2228,
+   "name": "GetPackageAllowFalls",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2229,
+   "name": "GetPackageArmorUnequipped",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2230,
+   "name": "GetPackageWeaponsUnequipped",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2231,
+   "name": "GetPackageDefensiveCombat",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2232,
+   "name": "GetPackageUseHorse",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2233,
+   "name": "GetPackageNoIdleAnims",
+   "param_types": [
+    "Package"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2571,
+   "name": "GetBaseAV3",
+   "param_types": [
+    "ActorValue"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2572,
+   "name": "GetBaseAV3C",
+   "param_types": [
+    "Integer"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2573,
+   "name": "IsNaked",
+   "param_types": [
+    "Integer"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2577,
+   "name": "IsMajorRef",
+   "param_types": [
+    "ActorValue"
+   ],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  },
+  {
+   "index": 2578,
+   "name": "IsDiseased",
+   "param_types": [],
+   "source": "https://github.com/TES5Edit/TES5Edit/blob/dev-4.1.6/Core/wbDefinitionsTES4.pas"
+  }
+ ]
+}

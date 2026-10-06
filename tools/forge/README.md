@@ -17,9 +17,36 @@ python -m pip install -r tools\requirements-forge.txt     (PyYAML, for .yaml spe
 | `forge build <spec> [--set K=V] [--out DIR] [--package]` | Builds, round-trips, lints and checks expectations, then writes `build-log.json`. Exit 0 = ok, 2 = a check failed. |
 | `forge package <spec>` | Zips the last passing build for Vortex: the plugin plus a readme, with byte-stable output. Refuses if the plugin changed after the build. |
 | `forge compare A.esp B.esp` | Reports `byte-identical`, `record-identical` (same records and header, different order), or `different`. |
+| `forge kb <command>` | Knowledge store: search, function/record/form/technique lookups (see below). |
 | `forge new "<idea>"` | Writes a draft spec in `specs\` (kind `plugin`, which builds from phase 3). |
 | `forge lint\|info\|records\|conflicts\|load-order\|find …` | → `tools\modlint.py`; arguments pass straight through. |
 | `forge xedit …` / `forge cs …` / `forge asset …` | → `xedit_run.py` / the CS bridge client / `assetkit.build`. |
+
+## Knowledge store (`forge kb`, phase 2)
+
+`forge-kb.sqlite` answers a modding question in one call instead of a guess. Every row carries `source` and `confidence` (`CONFIRMED_MULTI_SOURCE`, `HIGH_CONFIDENCE`, `HYPOTHESIS`). Text output labels a HYPOTHESIS as unverified.
+
+```
+forge kb build                                 build the DB (adds the PC exports if present); prints counts
+forge kb query "which function changes a projectile's owner?" [--kind function|record|technique|crash|form] [--json]
+forge kb func IsKeyPressed3 | record INFO | form WeapDaedricLongsword | forms --sig WTHR
+forge kb technique PositionWorld | crash persuasion | stats
+```
+
+| Table | From | Committed? |
+|---|---|---|
+| `record_types`, `subrecords`, `subrecord_fields` | xEdit `wbDefinitionsTES4.pas` (MPL-2.0): order, kind, required, repeating, FormID fields and targets, struct offsets. Cross-checked against `patchlib.F` → `CONFIRMED_MULTI_SOURCE`. | facts in `kb/data/record_schemas.json` |
+| `functions`, `function_params` | OBSE: xOBSE source command tables (name, alias, params, return type, release that added it). Vanilla: Vim's `obse.vim` name list + xEdit's condition table, upgraded from `Oblivion.exe`'s own command table on the PC. Our short descriptions/examples are in `kb/data/curated.json`. | signatures only; no xOBSE/UESP text |
+| `vanilla_forms` | `forge kb export-vanilla` on the PC (Oblivion.esm + official DLC: FormID, type, EDID, FULL). | **never** (Bethesda-derived, git-ignored) |
+| `techniques` | `docs/14-research-mods-index.md`, with the functions each technique uses linked automatically. | our analysis |
+| `crash_signatures`, `test_results` | `kb/data/curated.json` (seeded from agent-docs/docs). | yes |
+| `engine_classes`, `engine_fields`, `engine_functions` | empty, for phase 2b (COEF, xOBSE headers). | — |
+
+- **Ranking:** functions, records, techniques, crashes and tests share one index; our notes are a separate, higher-weighted column. Vanilla forms have their own index (`fts_forms`). They lead a `query` only when the question names one exactly (a CamelCase/digit EditorID such as `WeapDaedricLongsword`, or a FormID). Otherwise they fill at most a third of the results, after the knowledge rows. Use `--kind form` for forms only.
+- **On the PC:** `scripts\kb\Build forge KB.bat ["<GOG Oblivion folder>"]` runs both exports, the build and the KB tests, and writes `kb_log.txt`.
+- **Refreshing upstream facts:** `forge kb refresh-sources --xobse <clone> --xedit <wbDefinitionsTES4.pas> --vim <obse.vim>`, then commit `kb/data/*.json`. `provenance.json` records the commit/hash of each source.
+- **OBSE versions:** `obse_version` follows xOBSE's own rule (release index + 8). `8` means "the first OBSE command table" (v0008 or earlier).
+- **Not covered yet:** UESP pages are blocked from the cloud environment, so vanilla functions have no UESP-derived descriptions or parameter lists. Without the PC exe export, only names (and condition-function parameter types) are known; those rows are `HYPOTHESIS` unless a second source or our own note confirms them.
 
 ## The spec
 

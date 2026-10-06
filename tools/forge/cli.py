@@ -6,6 +6,7 @@
     forge build <spec> [--set K=V] [--out DIR] [--package] [--json]
     forge package <spec> [--out DIR]        zip the last build for Vortex (plugin + readme)
     forge compare <a.esp> <b.esp> [--json]  byte-identical / record-identical / different
+    forge kb <command> ...                  knowledge store (forge kb --help)
 
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
@@ -390,6 +391,9 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and (argv[0] in MODLINT_CMDS or argv[0] in WRAPPED):
         return run_wrapped(argv[0], argv[1:])
+    if argv and argv[0] == "kb":
+        from forge.kb.cli import main as kb_main
+        return kb_main(argv[1:])
     ap = argparse.ArgumentParser(prog="forge", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--version", action="version", version=f"forge {VERSION}")
@@ -408,6 +412,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out"); p.set_defaults(fn=cmd_package)
     p = sub.add_parser("compare"); p.add_argument("a"); p.add_argument("b")
     p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_compare)
+    sub.add_parser("kb", help="knowledge store: forge kb --help")
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)

@@ -1,0 +1,274 @@
+{
+ "_about": "Our own short descriptions and notes (project-owned). Facts cite where they come from. Confidence: CONFIRMED_MULTI_SOURCE, HIGH_CONFIDENCE or HYPOTHESIS.",
+ "functions": {
+  "SetProjectileSource": {
+   "summary": "Changes the owner (source) of a projectile: the hit then counts as that actor's attack. Call it on the projectile ref. Used to reflect or steal arrows and spells.",
+   "example": "projRef.SetProjectileSource playerRef",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "xOBSE source (Commands_MiscReference.cpp) + docs/14 (Projectile Manipulating Magic, Fearsome Magicka)"
+  },
+  "GetProjectileSource": {
+   "summary": "Returns the actor that fired a projectile (its source).",
+   "example": "set shooter to projRef.GetProjectileSource",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "xOBSE source + docs/14"
+  },
+  "GetProjectileType": {
+   "summary": "Returns the kind of projectile: arrow, magic ball, bolt or fog.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "SetVelocity": {
+   "summary": "Sets a reference's velocity along x, y, z. On projectiles this re-aims them, or stops (freezes) them in mid-air with 0 0 0.",
+   "example": "projRef.SetVelocity 0 0 0",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14 cross-cutting findings"
+  },
+  "SetProjectileSpeed": {
+   "summary": "Sets a projectile's speed; 0 holds it in place.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14"
+  },
+  "GetMagicProjectileSpell": {
+   "summary": "Returns the spell carried by a magic projectile.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "SetMagicProjectileSpell": {
+   "summary": "Swaps the spell a magic projectile carries.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14 (Fearsome Magicka)"
+  },
+  "GetProjectileLifetime": {
+   "summary": "Returns how long a projectile has existed, in seconds.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "GetFirstRef": {
+   "summary": "Finds nearby references: starts a scan over references in the current cell (and neighbouring cells with cell depth). Pass a form type to filter: 34 = projectiles in docs/14's specimens. Continue with GetNextRef until it returns 0.",
+   "example": "set r to GetFirstRef 34 1\nwhile r\n  ; ... use r ...\n  set r to GetNextRef\nloop",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "xOBSE source + docs/14 cross-cutting findings"
+  },
+  "GetNextRef": {
+   "summary": "Returns the next reference of the scan started by GetFirstRef, or 0 when done.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "xOBSE source + docs/14"
+  },
+  "GetNumRefs": {
+   "summary": "Counts references of a form type in the current cell (same filters as GetFirstRef).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "IsKeyPressed": {
+   "summary": "Old key check that takes a Windows virtual-key code. Prefer IsKeyPressed3.",
+   "params_note": "int = Windows virtual-key code (not a DirectInput scan code).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source (Commands_Input.cpp)"
+  },
+  "IsKeyPressed2": {
+   "summary": "Returns 1 while a key or mouse button is held down. Takes a DirectInput scan code; ignores keys a script has disabled.",
+   "params_note": "int = DirectInput (DIK) scan code, e.g. 28 = Enter, 57 = Space; mouse buttons are 256 and up (256 = left).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source (Commands_Input.cpp)"
+  },
+  "IsKeyPressed3": {
+   "summary": "Reads whether a key or mouse button is physically pressed, even if the key was disabled with DisableKey. The usual choice for hotkeys.",
+   "params_note": "int = DirectInput (DIK) scan code of the key, e.g. 28 = Enter, 57 = Space; mouse buttons are 256 and up (256 = left).",
+   "example": "if IsKeyPressed3 34 ; G key\n  ; ...\nendif",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source (Commands_Input.cpp) + docs/14 (Pocket Dimension Player Home uses it)"
+  },
+  "IsControlPressed": {
+   "summary": "Checks a game control (e.g. Activate, Jump) instead of a raw key, so it follows the player's key bindings.",
+   "params_note": "int = control code (0 = Forward ... see OBSE docs).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "GetKeyPress": {
+   "summary": "Returns the scan code of the n-th key currently held (0 = first).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "DisableKey": {
+   "summary": "Stops the game from reacting to a key; scripts can still read it with IsKeyPressed3.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "SetEventHandler": {
+   "summary": "Registers a user function script to run on an engine event (e.g. OnHit, OnActivate, LoadGame), optionally filtered.",
+   "example": "SetEventHandler \"OnHit\" MyHitFn \"object\"::playerRef",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source (Commands_Script.cpp)"
+  },
+  "GetFormFromMod": {
+   "summary": "Looks up a form by plugin file name and its FormID within that plugin, so a soft dependency needs no master.",
+   "example": "set f to GetFormFromMod \"Other.esp\" \"000D62\"",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "IsModLoaded": {
+   "summary": "Returns 1 if the named plugin is active. Use for soft dependencies.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source"
+  },
+  "CloneForm": {
+   "summary": "Creates a new runtime copy of a base form (saved in the savegame as an FF-index form). Used to make editable spell copies.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14 (Supreme Magicka)"
+  },
+  "SetNthEffectItemMagnitude": {
+   "summary": "Changes the magnitude of one effect inside a spell or enchantment at runtime.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14"
+  },
+  "RunBatchScript": {
+   "summary": "Runs a text file of console commands (often used for INI-style mod configuration).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14"
+  },
+  "GetCrosshairRef": {
+   "summary": "Returns the reference under the crosshair (within activation range).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "xOBSE source + docs/14 (Telekinetic Damage)"
+  },
+  "SetPos": {
+   "summary": "Vanilla: moves a reference along one axis to an absolute coordinate in its current cell.",
+   "example": "doorRef.SetPos x 1024",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command (obse.vim list) + docs/14 (Portal, PJ's Spell Compendium)"
+  },
+  "SetAngle": {
+   "summary": "Vanilla: sets a reference's rotation on one axis, in degrees.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Portal)"
+  },
+  "MoveTo": {
+   "summary": "Vanilla: moves a reference (or the player) to another reference, across cells and worldspaces, with optional offsets.",
+   "example": "playerRef.MoveTo ReturnMarkerRef",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Dimensional Pocket)"
+  },
+  "PositionWorld": {
+   "summary": "Vanilla: places a reference at x, y, z and z-rotation in a named worldspace. Used to send the player back to a stored return point.",
+   "example": "playerRef.PositionWorld 1000 2000 300 0 Tamriel",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Dimensional Pocket, Pocket Dimension Player Home)"
+  },
+  "PositionCell": {
+   "summary": "Vanilla: places a reference at x, y, z and z-rotation inside a named interior cell.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Pocket Dimension Player Home)"
+  },
+  "PlaceAtMe": {
+   "summary": "Vanilla: spawns a new reference of a base object at the calling reference. Each call adds a saved reference; avoid in loops.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (PJ's Spell Compendium)"
+  },
+  "PushActorAway": {
+   "summary": "Vanilla (1.2): knocks an actor away from the calling reference with a force value.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command (added in game patch 1.2, per xOBSE CommandTable.cpp) + docs/14 (Telekinetic Damage)"
+  },
+  "ForceWeather": {
+   "summary": "Vanilla: switches the current weather to a WTHR record; the optional flag overrides region weather until released.",
+   "example": "ForceWeather Thunderstorm 1",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Weather Control Spells, PJ's Spell Compendium)"
+  },
+  "SetWeather": {
+   "summary": "Vanilla: sets the weather to a WTHR record with a normal transition.",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "vanilla command + docs/14 (Weather Control Spells)"
+  },
+  "ReleaseWeatherOverride": {
+   "summary": "Vanilla: ends a ForceWeather override so regions control weather again.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "vanilla command"
+  },
+  "CreateFullActorCopy": {
+   "summary": "Vanilla: creates a copy of an actor including inventory; returns the new reference.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "vanilla command (return type recorded in xOBSE CommandTable.cpp) + docs/14"
+  },
+  "Resurrect": {
+   "summary": "Vanilla: brings a dead actor back to life (optionally with an animation).",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "vanilla command + docs/14 (True Necromancy)"
+  },
+  "SetActorsAI": {
+   "summary": "Vanilla (1.2): stops an actor moving and acting by switching its AI processing off (0); 1 switches it back on. Useful for time-stop effects.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "vanilla command (added in game patch 1.2, per xOBSE CommandTable.cpp)"
+  },
+  "SetRigidBodyMass": {
+   "summary": "Vanilla: changes the Havok mass of a physics object.",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "vanilla command + docs/14 (PJ's Spell Compendium)"
+  }
+ },
+ "crash_signatures": [
+  {
+   "id": "northernui-persuasion-tutorial",
+   "title": "Stuck on the Persuasion tutorial (controller)",
+   "symptoms": "The vanilla Persuasion tutorial, page 3 ('The potential gain or loss...'), ignores the gamepad under NorthernUI. Mouse clicks and Enter on their own do nothing. Looks like a hang, but the game is running.",
+   "cause": "NorthernUI's controller input doesn't reach that vanilla tutorial page; only arrow keys and Enter work in that menu.",
+   "fix": "With the tutorial on top, press keyboard Down to focus Continue, then Enter. One-time.",
+   "components": "NorthernUI, vanilla tutorial",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "docs/new-mods-audit-2026-10-06.md (fix used on 2026-10-05)"
+  },
+  {
+   "id": "elys-usv-wrong-folder",
+   "title": "Elys Silent Voice does nothing: DLL in the wrong folder",
+   "symptoms": "Unvoiced dialogue lines flash past (no silent voice padding). No error.",
+   "cause": "The Elys_USV.dll was deployed to the Data root, so xOBSE never loaded it. xOBSE plugins load only from Data\\OBSE\\Plugins.",
+   "fix": "Install Elys_USV.dll/.lip/.mp3 into Data\\OBSE\\Plugins. Don't copy its bundled Construction Set Extender.dll into the game.",
+   "components": "Elys Universal Silent Voice, xOBSE",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "docs/new-mods-audit-2026-10-06.md"
+  },
+  {
+   "id": "orc-fps-limiter-hang",
+   "title": "Hang linked to the Oblivion Reloaded (ORC) FPS limiter",
+   "symptoms": "Game hang (details not recorded).",
+   "cause": "Reported as a known cause: the Oblivion Reloaded frame-rate limiter. The setting name, conditions and confirming evidence are not yet written up in agent-docs.",
+   "fix": "Not documented yet. Capture a freeze report with Controller\\oblivion_freeze.py and record it here.",
+   "components": "Oblivion Reloaded (ORC)",
+   "confidence": "HYPOTHESIS",
+   "source": "Phase 2 brief (Yuri, 2026-10-06); no repo write-up yet"
+  }
+ ],
+ "test_results": [
+  {
+   "id": "phase1-merge-patch-pc",
+   "test": "forge build specs/rebirth-plus-merge-patch.yaml",
+   "subject": "Rebirth Plus - New Mods Patch.esp",
+   "result": "pass",
+   "date": "2026-10-06",
+   "evidence": "sha256 c1e5a675d8422e237c1195768885de30cf57a9b8a8d09bd4697d7c8cdd5db1dc in the cloud and on the PC; round-trip 0 mismatches; lint 0 errors",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "docs/forge-phase-checklist.md, specs/rebirth-plus-merge-patch.yaml"
+  },
+  {
+   "id": "phase1-fixture-tests",
+   "test": "python -m unittest discover -s forge/tests -t .",
+   "subject": "forge merge patch vs legacy build_patch.py",
+   "result": "pass (24/24)",
+   "date": "2026-10-06",
+   "evidence": "byte-identical to the legacy script with its loop in load order",
+   "confidence": "HIGH_CONFIDENCE",
+   "source": "docs/forge-phase-checklist.md"
+  },
+  {
+   "id": "phase2-kb-pc",
+   "test": "scripts\\kb\\Build forge KB.bat (test_kb_queries + test_kb_export + test_kb_ranking_noise)",
+   "subject": "forge-kb.sqlite",
+   "result": "pass (20/20 questions; 41 tests, 0 skips)",
+   "date": "2026-10-06",
+   "evidence": "PC run 2 at 41b5923 on the GOG copy: 58,845 vanilla forms, 369 script + 131 console commands exported",
+   "confidence": "CONFIRMED_MULTI_SOURCE",
+   "source": "kb_log.txt (PC run 2), docs/forge-phase-checklist.md"
+  }
+ ]
+}
