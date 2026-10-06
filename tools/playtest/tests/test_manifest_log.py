@@ -28,14 +28,18 @@ def forms() -> mf.FormTable:
     ft.add_plugin_records("ForgeExampleFirebolt.esp", [("ForgeExampleFireboltSpell", 0x01000800, "SPEL")])
     ft.add_plugin_records("ForgeTestCells.esp", [("ForgeArenaDummyRef", 0x0100081A, "ACHR"),
                                                  ("ForgeArenaCasterRef", 0x0100081B, "ACHR"),
-                                                 ("ForgeArenaStartRef", 0x01000810, "REFR"),
-                                                 ("Gold001Alias", 0x0000000F, "MISC")])
+                                                 ("ForgeStreet", 0x01000810, "CELL")])
     ft.add_plugin_records("Oblivion.esm", [("Gold001", 0x0000000F, "MISC")])
     return ft
 
 
-def manifest(run_id="abcd1234"):
-    return mf.build(mf.parse_plan(PLAN), forms(), cell_edid="ForgeTestArena", start_ref="ForgeArenaStartRef",
+LOC = {"key": "arena", "label": "Arena", "boot": "coc ArenaArena", "moveto": None, "cell_edid": "ArenaArena",
+       "world_edid": None, "detail": ""}
+BRING = [("ForgeArenaDummyRef", 0, 600, 0), ("ForgeArenaCasterRef", 200, 100, 0)]
+
+
+def manifest(run_id="abcd1234", location=LOC):
+    return mf.build(mf.parse_plan(PLAN), forms(), location=location, bring=BRING,
                     plugin="ForgeExampleFirebolt.esp", spec="example-firebolt", run_id=run_id)
 
 
@@ -45,9 +49,9 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(len(m["chunks"]), 2)
         self.assertEqual(m["chunks"][1]["wait_before"], 3.0)
         first, second = m["chunks"][0]["lines"], m["chunks"][1]["lines"]
-        self.assertEqual(first[:5], ["scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
-                                     "player.moveto 03000810", 'printc "FORGE|CELL|ForgeTestArena"',
-                                     "player.GetInCell ForgeTestArena"])
+        self.assertEqual(first[:6], ["scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
+                                     "0300081A.moveto player 0 600 0", "0300081B.moveto player 200 100 0",
+                                     'printc "FORGE|CELL|ArenaArena"', "player.GetInCell ArenaArena"])
         self.assertIn("player.addspell 02000800", first)
         self.assertIn("player.HasSpell 02000800", first)
         self.assertIn("0300081A.GetAV Health", first)
@@ -55,6 +59,18 @@ class ManifestTests(unittest.TestCase):
         self.assertIn("player.additem 0000000F 100", second)
         self.assertEqual(second[-2:], ['printc "FORGE|END|abcd1234"', "scof 0"])
         self.assertEqual([c["command"] for c in m["chunks"]], ["bat fpt1", "bat fpt2"])
+
+    def test_exterior_location_moves_to_the_marker_and_probes_the_worldspace(self):
+        loc = dict(LOC, key="street", boot="cow ICMarketDistrict 10 6", moveto="0000C002", cell_edid=None,
+                   world_edid="ICMarketDistrict")
+        lines = manifest(location=loc)["chunks"][0]["lines"]
+        self.assertEqual(lines[2], "player.moveto 0000C002")
+        self.assertIn("player.GetInWorldspace ICMarketDistrict", lines)
+
+    def test_cell_arguments_stay_editor_ids(self):
+        st = mf.parse_plan({"steps": [{"check": {"fn": "GetInCell", "args": ["ForgeStreet"], "expect": "== 1"}}]})
+        m = mf.build(st, forms(), location=LOC, bring=[], plugin="x.esp", spec=None, run_id="r")
+        self.assertIn("player.GetInCell ForgeStreet", m["chunks"][0]["lines"])
 
     def test_batch_files_are_crlf_cp1252(self):
         import tempfile
@@ -109,7 +125,7 @@ def log_text(m, health_after=475.0, end=True, run_id=None, extra_error=None, in_
         if markers:
             lines.append(t)
     mk(f"FORGE|BEGIN|{rid}")
-    mk("FORGE|CELL|ForgeTestArena")
+    mk("FORGE|CELL|ArenaArena")
     lines.append(f"GetInCell >> {in_cell:.2f}")
     mk("FORGE|STEP|1|addspell")
     mk("FORGE|STEP|2|check"); lines.append("HasSpell >> 1.00")
@@ -165,11 +181,11 @@ class LogTests(unittest.TestCase):
 
     def test_no_log_is_not_run_and_launch_alone_is_no_pass(self):
         self.assertEqual(testlog.evaluate(manifest(), None)["verdict"], "NOT-RUN")
-        empty = mf.build(mf.parse_plan({"steps": []}), forms(), cell_edid="ForgeTestArena",
-                         start_ref="ForgeArenaStartRef", plugin="X.esp", spec=None, run_id="r1")
+        empty = mf.build(mf.parse_plan({"steps": []}), forms(), location=LOC, bring=[], plugin="X.esp",
+                         spec=None, run_id="r1")
         import tempfile
         p = Path(tempfile.mkdtemp()) / "l.log"
-        p.write_text("FORGE|BEGIN|r1\nFORGE|CELL|ForgeTestArena\nGetInCell >> 1.00\nFORGE|END|r1\n")
+        p.write_text("FORGE|BEGIN|r1\nFORGE|CELL|ArenaArena\nGetInCell >> 1.00\nFORGE|END|r1\n")
         self.assertEqual(testlog.evaluate(empty, p)["verdict"], "NO-CHECKS")
 
     def test_froze_wins(self):

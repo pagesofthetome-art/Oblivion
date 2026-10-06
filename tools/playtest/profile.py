@@ -98,6 +98,11 @@ class Machine:
     def journal(self) -> Path:
         return self.profile_dir / JOURNAL
 
+    @property
+    def save_dir(self) -> Path:
+        """Where the test profile's saves go (SLocalSavePath in the test ini)."""
+        return self.ini.parent / SAVE_DIR.rstrip("\\").replace("\\", "/")
+
     @classmethod
     def detect(cls, env=None, repo: Path | None = None) -> "Machine":
         """Paths on Yuri's PC; every one can be overridden with an environment variable."""
@@ -109,11 +114,23 @@ class Machine:
         steam = Path(env.get("FORGE_PLAYTEST_STEAM_DIR")
                      or r"C:\Program Files (x86)\Steam\steamapps\common\Oblivion")
         docs = _documents_dir() or home / "Documents"
+        state = Path(env.get("FORGE_PLAYTEST_STATE_DIR") or repo / "forge-builds" / "playtest")
+        cfg = {}
+        cfg_path = state / "machine.json"
+        if cfg_path.is_file():
+            try:
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            except ValueError:
+                raise ProfileError(f"{cfg_path} is not valid JSON") from None
+        game = env.get("FORGE_PLAYTEST_GAME_DIR") or cfg.get("game_dir") or _find_gog(repo)
+        if cfg.get("steam_dir") and not env.get("FORGE_PLAYTEST_STEAM_DIR"):
+            steam = Path(cfg["steam_dir"])
         m = cls(
-            plugins_txt=Path(env.get("FORGE_PLAYTEST_PLUGINS_TXT") or local / "Oblivion" / "Plugins.txt"),
-            ini=Path(env.get("FORGE_PLAYTEST_INI") or docs / "My Games" / "Oblivion" / "Oblivion.ini"),
-            game_dir=Path(env.get("FORGE_PLAYTEST_GAME_DIR") or repo / "Oblivion"),
-            state_dir=Path(env.get("FORGE_PLAYTEST_STATE_DIR") or repo / "forge-builds" / "playtest"),
+            plugins_txt=Path(env.get("FORGE_PLAYTEST_PLUGINS_TXT") or cfg.get("plugins_txt")
+                             or local / "Oblivion" / "Plugins.txt"),
+            ini=Path(env.get("FORGE_PLAYTEST_INI") or cfg.get("ini") or docs / "My Games" / "Oblivion" / "Oblivion.ini"),
+            game_dir=Path(game),
+            state_dir=state,
             play_dirs=[steam],
             vortex_dirs=[roaming / "Vortex"],
             master_dirs=[steam / "Data"],
@@ -149,6 +166,17 @@ class Machine:
                 raise ProfileError(f"refusing to write {p}: inside {d}")
         if not any(p == a or _same_or_inside(p, a) for a in allowed):
             raise ProfileError(f"refusing to write {p}: outside the test game and the profile")
+
+
+def _find_gog(repo: Path) -> Path:
+    r"""The clean GOG copy: <repo>\Oblivion, else a sibling Oblivion folder (Desktop\Games\Oblivion
+    next to a clone in Desktop\Games\Oblivion-repo). Override: FORGE_PLAYTEST_GAME_DIR or
+    forge-builds\playtest\machine.json {"game_dir": ...}."""
+    for cand in (repo / "Oblivion", repo.parent / "Oblivion"):
+        data = cand / "Data"
+        if (data / "Oblivion.esm").is_file() and not (data / "vortex.deployment.json").exists():
+            return cand
+    return repo / "Oblivion"
 
 
 def _documents_dir() -> Path | None:

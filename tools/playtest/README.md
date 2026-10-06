@@ -1,19 +1,28 @@
 # TES4Forge playtest (Track E)
 
-`forge playtest` boots a throw-away test profile straight into a small test cell, runs scripted
-checks, and puts the real setup back when the game exits. `forge test` prints the report.
-`forge preview` lets you walk the layout in a browser first. Yuri's Rebirth+ setup (Steam copy,
-Vortex) is never written to.
+`forge playtest` runs **the real game**: Oblivion.exe through xOBSE, with a minimal load order
+(Oblivion.esm, the DLC, the mod under test, and a small plugin of test actors). It boots straight
+into a **vanilla cell**, runs scripted checks, and stays open for you to play with the pad. When
+the game exits, the real setup is restored. `forge test` prints the report. The browser preview is
+an optional layout check only. Yuri's Rebirth+ setup (Steam copy, Vortex) is never written to.
 
 ```
 forge playtest tools\playtest\examples\example-firebolt.yaml          boot, check, keep playing
-forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open] [--quit] [--dry-run]
-forge playtest restore | status | cells                               fix-up, hashes, build the cells
-forge test [RUN_DIR] [--json]                                          report of the last run
-forge preview <spec.yaml | Mod.esp | cells> [--cell NAME] [--open]     browser layout check
+forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open|<InteriorEditorID>|marker:<Map marker>] [--quit] [--dry-run]
+forge playtest make-save                     one time: New Game with the pad -> test save (boot plan B)
+forge playtest find <text>                   search vanilla interiors and map markers for --cell
+forge playtest restore | status | cells      fix-up; hashes; test actors + chosen locations
+forge test [RUN_DIR] [--json]                report of the last run
+forge preview <spec | Mod.esp | cells> [--cell X] [--open]    optional browser layout check
 ```
 Exit codes: 0 pass, 1 setup/usage error, 2 checks failed (also: no checks, froze, never ran).
-PC acceptance run: double-click `tools\playtest\acceptance.bat` (writes `forge-builds\playtest\acceptance.txt`).
+PC acceptance run: `tools\playtest\acceptance.bat`, which writes `forge-builds\playtest\acceptance.txt`.
+
+Where the GOG copy is found, in this order:
+1. `FORGE_PLAYTEST_GAME_DIR`.
+2. `forge-builds\playtest\machine.json` (`{"game_dir": "...", "steam_dir": "...", "plugins_txt": "...", "ini": "..."}`).
+3. `<repo>\Oblivion`.
+4. A sibling `..\Oblivion` next to the clone.
 
 ## The method, and why
 
@@ -30,9 +39,9 @@ forge builds the profile in `forge-builds\playtest\profile\` and swaps it in for
 1. It refuses if Oblivion.exe, OblivionLauncher.exe, obse_loader.exe or the CS is running.
 2. It backs up both files and writes `restore-journal.json` (with SHA-256 hashes, fsynced) before changing anything.
 3. It replaces them atomically. The test `Plugins.txt` lists Oblivion.esm, the DLC, the mod's
-   masters, the mod and `ForgeTestCells.esp`, nothing else. The test ini is the real one with these
+   masters, the mod and `ForgeTestCells.esp` (test actors only), nothing else. The test ini is the real one with these
    changes: no intro videos, its own save folder (`Saves\ForgePlaytest\`), no autosaves.
-4. It stages the plugins, the mesh kit and the console batches into the GOG copy. Each new file
+4. It stages the plugins and the console batches into the GOG copy. Each new file
    goes into the journal first. Existing files are never overwritten. A missing master is copied
    from the Steam Data folder (read only).
 5. Restore puts the original bytes back (and their timestamps), checks the hashes, and deletes
@@ -51,28 +60,47 @@ Windows for the folders, not the environment); a second Windows user (too heavy)
 ## Quick boot
 
 1. `obse_loader.exe` starts with the intro videos switched off.
-2. At the main menu the driver opens the console and types `coc ForgeTestArena`. Oblivion then
-   starts a game with a default character directly in that cell: no character creation, no
-   tutorial dungeon, no save needed.
-3. After the load the driver runs `bat fpt1` (then `fpt2`… after each `wait`). It types only while
-   the test game is in front. It checks the console is open first (menu-mode probe from
-   `Controller\oblivion_osk.py`), so stray letters never reach the game.
-4. Boot time is measured from the command to "cell loaded, player in control". The target is 30 s.
-   The game then stays open to play with the pad (`--quit` closes it).
+2. **Plan A:** at the main menu the driver opens the console and types the location's boot
+   command: `coc <Interior>`, or `cow <World> x y` for an exterior. Oblivion then starts a default
+   character right there: no character creation, no tutorial dungeon.
+3. **Plan B:** used if plan A starts no load within 20 s and a test save exists. It presses Enter
+   (Continue), which loads `Saves\ForgePlaytest\ForgePlaytestBase.ess`, then types the boot
+   command in the in-game console. Make that save once with `forge playtest make-save`: you press
+   New Game with the pad, and forge takes over as soon as you can walk.
+4. After the load, `bat fpt1` (then `fpt2`… after each `wait`) brings the test actors next to you,
+   checks where you are (`GetInCell` / `GetInWorldspace`), and runs the steps.
+5. Boot time is measured from the command to "loaded, player in control". The target is 30 s.
 
-## Test cells (`ForgeTestCells.esp`, generated by `testcells.py`)
+Every run folder (`forge-builds\playtest\runs\<time>\`) also keeps:
+- `boot-trace.jsonl`: menu stack, menu mode, focus and window, twice a second;
+- `shots\*.png`: screenshots of the main menu, the console, the loaded game, and any error;
+- `Plugins.test.txt` and `Oblivion.test.ini`: exactly what the game was given.
 
-| key | cell | for |
+So a failed boot can be read afterwards.
+
+## Test locations: real vanilla cells
+
+These are picked from the test game's own Oblivion.esm, which is only read. The index is cached in
+`forge-builds\playtest\vanilla-index.json`. `forge playtest cells` shows the choices.
+
+| key | where | for |
 |---|---|---|
-| `arena` | `ForgeTestArena` (lit interior, 2048×2048, walled) | spells and combat: an essential `ForgeArenaDummyRef` that never fights back, a passive caster `ForgeArenaCasterRef`, cover, `ForgeArenaSpawnRef` |
-| `street` | `ForgeTestStreet` (behaves like an exterior) | doors (a load door to the arena), a merchant (barter; 08-20 work, 20-08 at the house door), two townsfolk |
-| `open` | `ForgeTestOpen` (behaves like an exterior, 4096×4096) | weather (`fw`) and projectiles: a dummy at 1500 units, cover at several ranges |
+| `arena` | the Arena interior (EditorID/name says Arena; the one with the most references wins) | spells and combat |
+| `street` | the *Market District* map marker in the Imperial City | doors, shops, crowds, a merchant |
+| `open` | the *Weye* map marker (shore road west of the city) | weather (`fw`) and projectiles |
 
-The spec picks the cell with `test_plan.cell`. The plugin is new records only. Its only vanilla
-references are engine-fixed FormIDs (Imperial race, Gold001, XMarkerHeading). The geometry is a
-5-piece mesh kit (floor, wall, block, door, trinket) generated by assetkit into
-`meshes\forge\testcells\`. The "exterior" cells are interiors flagged *behave like exterior*, so
-they get sky and weather without a worldspace. A real worldspace patch is Track G work.
+Any vanilla interior works with `--cell <EditorID>`, and any map marker with `--cell "marker:<name>"`.
+`forge playtest find <text>` searches both.
+
+`ForgeTestCells.esp` adds **only test actors**, parked in an empty holding cell and moved next to
+the player by the first batch:
+- `ForgeArenaDummyRef`: essential, never fights back, 500 health;
+- `ForgeArenaCasterRef`: passive caster for `cast` steps;
+- `ForgeStreetMerchantRef`: barter; work 08-20, off duty 20-08;
+- two townsfolk.
+
+They copy the hair, eyes, FaceGen face and clothes of real vanilla Imperial NPCs. The plugin adds
+no meshes, statics or doors, and overrides no vanilla record.
 
 ## Automated checks
 
@@ -120,18 +148,16 @@ PersuasionMenu. It is dismissed automatically with Down, Enter.
 - Nothing happens while another Oblivion or the CS is open. Keys go only to the test game's own
   window (checked by process id).
 
-## Browser preview
+## Browser preview (optional)
 
-`forge preview` builds a page from `preview/oblivion-preview-template.html`. It keeps the
-template's engine as is (WebGL, with the software canvas fallback via `?soft`, physics,
-keyboard/mouse/touch/gamepad) and swaps in a scene generated from the plugin bytes:
-- every cell with references;
-- each REFR/ACHR at its position and rotation;
-- NPCs with their AI packages and a 24-hour schedule bar.
+The preview is a quick layout check, not a playtest, and nothing opens it automatically.
+`forge preview` builds a page from `preview/oblivion-preview-template.html`. It keeps the template's
+engine as is (WebGL with the `?soft` canvas fallback, keyboard/mouse/touch/gamepad) and draws:
+- **for a mod:** the cells the mod places objects in;
+- **for `forge preview cells`:** a vanilla interior from Oblivion.esm.
 
-To inspect something, click it, or aim at it and press E / Cross. Esc / Circle closes the
-inspector. To switch cells, press 1-9, Q / F, R2 / L2 or the D-pad. `preview/forge-test-cells.html`
-is a pre-built copy.
+Objects are boxes sized from each base's bound radius. Click an NPC, or aim at it and press
+E / Cross, to see its packages and schedule.
 
 ## Tests
 
@@ -142,11 +168,12 @@ python -m unittest discover -s playtest/tests -t .
 The suite covers:
 - profile swap/restore: byte-identical files and timestamps, crash recovery, the guardian, refusals;
 - manifest and log parsing;
-- the test-cell plugin: deterministic, parses back, lints clean against a fixture master;
-- the kit meshes;
+- the test-actor plugin: deterministic, no geometry, looks copied, lints clean against a fixture master;
+- picking vanilla locations;
 - the preview page;
 - the CLI;
-- an end-to-end run against a fake game that executes the batch files: pass, fail, freeze,
-  refusal, dry run, forge crash, masters taken from the play copy.
+- an end-to-end run against a fake game that executes the batch files: pass, the street exterior,
+  plan A failing with and without a save, `make-save`, fail, freeze, refusal, dry run, forge
+  crash, masters taken from the play copy.
 
 Every fixture is invented; there is no Bethesda data.

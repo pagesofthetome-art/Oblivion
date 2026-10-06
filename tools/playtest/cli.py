@@ -1,7 +1,7 @@
 """The playtest command group for forge: playtest, test, preview.
 
     forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open] [--manifest F] [--quit] [--dry-run]
-    forge playtest restore | status | cells
+    forge playtest restore | status | cells | make-save | find <text>
     forge test [RUN_DIR] [--log forge_test.log --manifest playtest_manifest.json] [--json]
     forge preview <spec.yaml | Mod.esp | cells> [--cell NAME] [--out page.html] [--open]
 
@@ -16,13 +16,16 @@ from pathlib import Path
 
 from playtest import manifest as mf, profile, testlog
 
-ACTIONS = {"restore", "status", "cells"}
+ACTIONS = {"restore", "status", "cells", "make-save", "find"}
 
 
 def register(sub) -> None:
     p = sub.add_parser("playtest", help="quick-boot the test game into a test cell and run the checks")
-    p.add_argument("target", help="spec (.yaml/.json), plugin (.esp/.esm), or restore | status | cells")
-    p.add_argument("--cell", help="arena, street or open (default: the spec's test_plan.cell, else arena)")
+    p.add_argument("target", help="spec (.yaml/.json), plugin (.esp/.esm), or restore | status | cells | "
+                                  "make-save | find")
+    p.add_argument("text", nargs="?", help="for find: text to search vanilla cells and map markers for")
+    p.add_argument("--cell", help="arena | street | open | <vanilla InteriorEditorID> | marker:<Map marker> | "
+                                  "cow:<World>:<x>:<y> (default: the spec's test_plan.cell, else arena)")
     p.add_argument("--manifest", help="test plan file (YAML/JSON) instead of the spec's test_plan")
     p.add_argument("--quit", action="store_true", help="quit the game when the checks are done")
     p.add_argument("--dry-run", action="store_true", help="build, swap and stage the profile, then restore; no launch")
@@ -64,15 +67,42 @@ def cmd_playtest(a) -> int:
                 for f, h in st["sha256"].items():
                     print(f"  sha256 {h or 'missing'}  {f}")
             return 0
+        if a.target == "find":
+            if not a.text:
+                print("usage: forge playtest find <text>", file=sys.stderr)
+                return 1
+            from playtest import vanilla
+            hits = vanilla.search(a.text, runner.vanilla_index(m))
+            print("\n".join(hits) if hits else f"nothing matches {a.text!r}")
+            return 0
+        if a.target == "make-save":
+            res = runner.make_save(runner.Options(cell=a.cell, boot_timeout=a.boot_timeout,
+                                                  companion=not a.no_companion), m)
+            print(json.dumps(res, indent=1) if a.json else
+                  (f"test save made: {res['save']}" if res.get("made") else f"no save made: {res.get('error')}"))
+            return 0 if res.get("made") else 2
         esp, lay = runner.testcells_build(m)
-        print(f"{esp}\n  cells: " + ", ".join(f"{k} = {c['edid']}" for k, c in lay["cells"].items()))
+        print(f"{esp}\n  actors: " + ", ".join(lay["refs"]) +
+              (f"\n  look like: {', '.join(lay['appearance'])}" if lay.get("appearance") else
+               "\n  look: plain (no Oblivion.esm in the test game)"))
+        try:
+            from playtest import vanilla
+            idx = runner.vanilla_index(m)
+            for key in ("arena", "street", "open"):
+                try:
+                    loc = vanilla.resolve(key, idx)
+                    print(f"  {key:<7} {loc.boot:<40} {loc.detail}")
+                except vanilla.VanillaError as e:
+                    print(f"  {key:<7} NOT FOUND: {e}")
+        except runner.PlaytestError as e:
+            print(f"  locations: {e}")
         return 0
     opts = runner.Options(cell=a.cell, manifest=Path(a.manifest) if a.manifest else None, dry_run=a.dry_run,
                           quit_when_done=a.quit, boot_timeout=a.boot_timeout, hang_seconds=a.hang_seconds,
                           companion=not a.no_companion, log=(lambda s: None) if a.json else print)
     try:
         res = runner.run(a.target, opts, m)
-    except (runner.PlaytestError, profile.ProfileError, mf.ManifestError, ValueError) as e:
+    except (runner.PlaytestError, profile.ProfileError, mf.ManifestError, ValueError) as e:  # noqa: B014
         print(f"error: {e}", file=sys.stderr)
         return 1
     print(json.dumps(res, indent=1) if a.json else _report(res))
@@ -121,24 +151,32 @@ def cmd_test(a) -> int:
 
 
 def cmd_preview(a) -> int:
-    from playtest import preview, runner, testcells
+    from playtest import preview, runner, vanilla
     m = profile.Machine.detect()
     out_dir = m.state_dir / "preview"
-    tc_esp, _ = runner.testcells_build(m, with_kit=False)
     try:
         if a.target == "cells":
-            plugin, title, extra = tc_esp, "Forge test cells", []
-            plan_cell = None
-        else:
-            t = runner.resolve_target(a.target, runner.Options(cell=a.cell), m)
-            plugin, title, extra = t.plugin, t.spec_name or t.plugin.stem, [tc_esp]
-            plan_cell = t.plan.get("cell")
-            if not a.cell and preview.extract(plugin)["cells"]:
-                plan_cell = None                      # the mod places objects: show its own cells first
-        first = _cell_edid(a.cell or plan_cell, testcells)
+            idx = runner.vanilla_index(m)
+            loc = vanilla.resolve(a.cell or "arena", idx)
+            if not loc.cell_edid:
+                raise preview.PreviewError("the preview draws vanilla interiors only; pick one with --cell <EditorID>")
+            c = next(c for c in idx["interiors"] if c["edid"] == loc.cell_edid)
+            data = preview.extract_vanilla_cell(m.data / "Oblivion.esm", c["fid"], c["edid"], c["name"])
+            title = f"{c['name'] or c['edid']} (vanilla)"
+            out = Path(a.out) if a.out else out_dir / f"{c['edid']}.html"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(preview.render(data, title, f"Vanilla interior {c['edid']} from Oblivion.esm, "
+                                          "boxes sized from each object's bound radius."), encoding="utf-8")
+            print(f"preview {out}")
+            if a.open:
+                import webbrowser
+                webbrowser.open(out.resolve().as_uri())
+            return 0
+        t = runner.resolve_target(a.target, runner.Options(cell=a.cell), m)
+        plugin, title = t.plugin, t.spec_name or t.plugin.stem
         out = Path(a.out) if a.out else out_dir / f"{Path(title).stem.replace(' ', '-')}.html"
-        page = preview.build_page(plugin, out, title=title, first_cell=first, extra_plugins=extra)
-    except (preview.PreviewError, runner.PlaytestError, ValueError) as e:
+        page = preview.build_page(plugin, out, title=title, first_cell=a.cell)
+    except (preview.PreviewError, runner.PlaytestError, vanilla.VanillaError, ValueError, StopIteration) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     print(f"preview {page}")
@@ -147,11 +185,3 @@ def cmd_preview(a) -> int:
         webbrowser.open(page.resolve().as_uri())
     return 0
 
-
-def _cell_edid(name, testcells):
-    if not name:
-        return None
-    try:
-        return testcells.CELLS[testcells.cell_key(name)]["edid"]
-    except ValueError:
-        return name                                   # a cell EditorID from the mod itself

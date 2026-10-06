@@ -1,6 +1,7 @@
 @echo off
 rem  TES4Forge Track E acceptance run. Close Oblivion (and the CS) first, then double-click this.
 rem  Hands off the keyboard while the game boots: the test types into the game console for ~30 s.
+rem  If it says "Run forge playtest make-save once": run  forge playtest make-save  (New Game with the pad), then this again.
 rem  Everything it prints is saved to forge-builds\playtest\acceptance.txt - send that file back.
 setlocal
 cd /d "%~dp0..\.."
@@ -25,8 +26,6 @@ echo.>> "%OUT%" & echo === 3. forge test>> "%OUT%"
 call forge.cmd test >> "%OUT%" 2>&1
 echo.>> "%OUT%" & echo === hashes AFTER (must equal BEFORE)>> "%OUT%"
 call forge.cmd playtest status >> "%OUT%" 2>&1
-echo.>> "%OUT%" & echo === 4. browser preview>> "%OUT%"
-call forge.cmd preview "%EX%" --open >> "%OUT%" 2>&1
 type "%OUT%"
 echo.
 echo Saved to %OUT%

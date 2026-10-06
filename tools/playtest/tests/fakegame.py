@@ -18,7 +18,7 @@ class FakeGame:
     def __init__(self, game_dir: Path, behaviour: dict | None = None):
         self.dir = game_dir
         self.b = {"menu_at": 3.0, "load_seconds": 2.0, "damage": 25.0, "freeze_at": None, "printc": True,
-                  "has_spell_works": True}
+                  "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None}
         self.b.update(behaviour or {})
         self.state = "starting"
         self.console_open = False
@@ -27,6 +27,8 @@ class FakeGame:
         self.av = {"health": 500.0}
         self.spells: set = set()
         self.cell = None
+        self.world = None
+        self.menu_since = None
         self.t_load = None
         self.alive = True
         self.history: list[str] = []
@@ -38,6 +40,10 @@ class FakeGame:
             self.started = now
         if self.state == "starting" and now - self.started >= self.b["menu_at"]:
             self.state = "menu"
+            self.menu_since = now
+        if (self.state == "menu" and self.b["new_game_after"] is not None
+                and now - self.menu_since >= self.b["new_game_after"]):
+            self.cell, self.state, self.t_load = "TutorialPrison", "loading", now     # Yuri pressed New
         if self.state == "loading" and now - self.t_load >= self.b["load_seconds"]:
             self.state = "game"
         if self.b["freeze_at"] is not None and now - self.started >= self.b["freeze_at"]:
@@ -53,8 +59,16 @@ class FakeGame:
         if self.state == "frozen":
             return
         if k == "tilde":
+            if self.state == "menu" and not self.b["menu_console"]:
+                return
             self.console_open = not self.console_open
             self.typed = ""
+        elif k == "esc":
+            self.console_open = False
+        elif k == "enter" and self.state == "menu" and not self.console_open:
+            sd = self.b["save_dir"]
+            if sd and any(Path(sd).glob("*.ess")):                                 # Continue
+                self.cell, self.state, self.t_load = "ArenaArenaFixture", "loading", self._now
         elif k == "enter" and self.console_open:
             self.run(self.typed)
             self.typed = ""
@@ -76,9 +90,19 @@ class FakeGame:
         self.history.append(cmd)
         low = cmd.lower()
         if low.startswith("coc "):
-            self.cell = cmd.split(None, 1)[1]
+            self.cell, self.world = cmd.split(None, 1)[1], None
             self.state, self.t_load = "loading", self._now
             self.console_open = False
+            return
+        if low.startswith("cow "):
+            self.world, self.cell = cmd.split()[1], None
+            self.state, self.t_load = "loading", self._now
+            self.console_open = False
+            return
+        if low.startswith("save "):
+            sd = Path(self.b["save_dir"])
+            sd.mkdir(parents=True, exist_ok=True)
+            (sd / (cmd.split(None, 1)[1] + ".ess")).write_bytes(b"save")
             return
         if low == "qqq":
             self.alive = False
@@ -102,7 +126,9 @@ class FakeGame:
             self.write(f"Script command \"{cmd}\" not found.")
             return
         fn, args = m.group(2).lower(), m.group(3).split()
-        if fn == "getincell":
+        if fn == "getinworldspace":
+            self.write(f"GetInWorldspace >> {1.0 if args and args[0] == self.world else 0.0:.2f}")
+        elif fn == "getincell":
             self.write(f"GetInCell >> {1.0 if args and args[0] == self.cell else 0.0:.2f}")
         elif fn == "addspell":
             if self.b["has_spell_works"]:
@@ -196,3 +222,7 @@ class FakePlatform(plat.Platform):
 
     def freeze_tick(self, win, focused):
         return False
+
+    def screenshot(self, win, path):
+        Path(path).write_bytes(b"\x89PNG fake")
+        return True

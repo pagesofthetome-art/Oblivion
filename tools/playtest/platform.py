@@ -66,6 +66,18 @@ class Platform:
     def hung(self, win) -> bool:
         return False
 
+    def screenshot(self, win, path) -> bool:
+        """Save a PNG of the game window (or the screen); False if not possible here."""
+        return False
+
+    def grab(self, win):
+        """An image of the game window for comparisons (None if not possible)."""
+        return None
+
+    def console_visible(self, before, after) -> bool:
+        """Did the top part of the screen change like the console opening? (screen fallback)"""
+        return False
+
     def sleep(self, s: float) -> None:
         time.sleep(s)
 
@@ -226,3 +238,26 @@ class WinPlatform(Platform):
 
     def hung(self, win):
         return bool(win) and bool(self.u.IsHungAppWindow(win[0]))
+
+    def grab(self, win):
+        try:
+            from PIL import ImageGrab
+            return ImageGrab.grab(bbox=tuple(win[2]) if win else None, all_screens=True)
+        except Exception:
+            return None
+
+    def screenshot(self, win, path):
+        img = self.grab(win)
+        if img is None:
+            return False
+        img.save(path)
+        return True
+
+    def console_visible(self, before, after):
+        if before is None or after is None or before.size != after.size:
+            return False
+        from PIL import ImageChops, ImageStat
+        w, h = before.size
+        box = (0, 0, w, int(h * 0.45))                  # the console covers the top of the screen
+        diff = ImageChops.difference(before.crop(box).convert("L"), after.crop(box).convert("L"))
+        return ImageStat.Stat(diff).mean[0] > 12

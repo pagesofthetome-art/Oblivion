@@ -5,7 +5,7 @@ the software-canvas fallback, physics, player, pad/keyboard/touch input, HUD) is
 template's TEST LOCATION and MOD blocks are replaced by a scene generated from plugin data.
 
 What is drawn comes from the plugin bytes (tes4_plugin): every CELL with references, each REFR /
-ACHR at its DATA position and rotation, bases sized from the test-cell kit or from MODB bound
+ACHR at its DATA position and rotation, bases sized from their MODB bound
 radius. NPCs come with their packages (PKID -> PACK: type, location, PSDT schedule).
 
 Controls: WASD / left stick walk, mouse drag / right stick look. Click an NPC or door, or aim at it
@@ -21,7 +21,7 @@ import re
 import struct
 from pathlib import Path
 
-from playtest import testcells
+from playtest import testcells  # noqa: F401  (package/service names)
 
 REPO = Path(__file__).resolve().parents[2]
 TEMPLATE = REPO / "preview" / "oblivion-preview-template.html"
@@ -55,7 +55,6 @@ def extract(plugin: Path) -> dict:
     pl = tp.load(plugin)
     if pl.errors:
         raise PreviewError(f"{plugin.name}: " + "; ".join(pl.errors[:3]))
-    kit_by_edid = {v["edid"].lower(): k for k, v in testcells.KIT.items()}
     names: dict[int, str] = {}
     bases: dict[int, dict] = {}
     packs: dict[int, dict] = {}
@@ -107,8 +106,7 @@ def extract(plugin: Path) -> dict:
         else:
             modb = s.get("MODB")
             bases[r.form_id] = {"sig": r.sig, "edid": r.editor_id, "name": r.full_name,
-                                "radius": struct.unpack("<f", modb[:4])[0] if modb and len(modb) >= 4 else None,
-                                "kit": kit_by_edid.get(r.editor_id.lower())}
+                                "radius": struct.unpack("<f", modb[:4])[0] if modb and len(modb) >= 4 else None}
     for parent, ref in refs:
         if parent in cells:
             cells[parent]["refs"].append(ref)
@@ -118,6 +116,37 @@ def extract(plugin: Path) -> dict:
             continue
         out_cells.append(_cell_view(fid, c, bases, npcs, packs, names))
     return {"plugin": plugin.name, "masters": list(pl.masters), "cells": out_cells}
+
+
+def extract_vanilla_cell(esm: Path, cell_fid: int, edid: str, name: str) -> dict:
+    """One vanilla interior from Oblivion.esm (read only): its refs, sized from each base's MODB."""
+    import tes4_plugin as tp
+    refs = []
+    for _, r in tp.iter_records(esm, {"REFR", "ACHR", "ACRE"}):
+        if r.parent != cell_fid:
+            continue
+        s = {x.sig: x.data for x in r.subrecords()}
+        if "DATA" not in s or "NAME" not in s:
+            continue
+        x, y, z, rx, ry, rz = struct.unpack_from("<6f", s["DATA"])
+        ref = {"sig": r.sig, "edid": r.editor_id, "formid": f"{r.form_id:08X}",
+               "base": struct.unpack("<I", s["NAME"][:4])[0], "pos": [x, y, z], "rot": rz}
+        if "XTEL" in s:
+            ref["teleport"] = struct.unpack_from("<I", s["XTEL"])[0]
+        refs.append(ref)
+    want = {r["base"] for r in refs}
+    bases, npcs = {}, {}
+    for _, r in tp.iter_records(esm, None, want):
+        modb = r.first("MODB")
+        bases[r.form_id] = {"sig": r.sig, "edid": r.editor_id, "name": r.full_name,
+                            "radius": struct.unpack("<f", modb[:4])[0] if modb and len(modb) >= 4 else None}
+        if r.sig in ("NPC_", "CREA"):
+            npcs[r.form_id] = {"edid": r.editor_id, "name": r.full_name or r.editor_id, "level": None,
+                               "essential": False, "health": None, "aggression": None, "confidence": None,
+                               "services": 0, "packages": []}
+    cell = {"edid": edid, "name": name, "interior": True, "exterior_like": False, "refs": refs}
+    view = _cell_view(cell_fid, cell, bases, npcs, {}, {})
+    return {"plugin": esm.name, "masters": [], "cells": [view]}
 
 
 def _describe_pack(p: dict, names: dict) -> dict:
@@ -149,10 +178,6 @@ def _cell_view(fid, c, bases, npcs, packs, names) -> dict:
                 "packages": [_describe_pack(packs[p], names) if p in packs else
                              {"edid": f"{p:08X}", "type": "(in a master)", "where": "", "hours": "?",
                               "start": -1, "duration": 0, "offers_services": False} for p in n["packages"]]})
-        elif base.get("kit"):
-            k = testcells.KIT[base["kit"]]
-            it.update(kind="door" if base["kit"] == "door" else base["kit"], size=list(k["size"]),
-                      origin=k["origin"], name=base.get("name") or base["kit"])
         elif b in MARKER_BASES or "marker" in (base.get("edid") or "").lower():
             it.update(kind="marker", name=ref["edid"] or "marker")
         else:
@@ -222,8 +247,8 @@ def render(data: dict, title: str, subtitle: str, first_cell: str | None = None,
                   '<section class="build" aria-label="Inspector"><h2 id="insp-title">Inspector</h2>'
                   '<div id="insp" class="insp" tabindex="-1"><p>Aim at an NPC, a door or a marker and press E / '
                   'Cross, or click it.</p></div><h2>Cells</h2><ul id="cell-list"></ul>'
-                  '<div class="note"><b>Layout check only.</b> Boxes stand in for meshes; sizes come from the '
-                  'test-cell kit or each base\'s bound radius. NPCs stand still here; their packages and '
+                  '<div class="note"><b>Layout check only.</b> Boxes stand in for meshes; sizes come from '
+                  'each base\'s bound radius (MODB). NPCs stand still here; their packages and '
                   'schedules are listed as the game will run them.</div></section>', page, count=1, flags=re.S)
     page = page.replace("</style>", PREVIEW_CSS + "</style>", 1)
     return page

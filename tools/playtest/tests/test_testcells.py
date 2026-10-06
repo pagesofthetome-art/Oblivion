@@ -1,4 +1,4 @@
-"""ForgeTestCells.esp: deterministic, parses back, lints clean, and the layout resolves."""
+"""ForgeTestCells.esp: test actors only (no geometry), deterministic, lints clean, looks copied."""
 
 from __future__ import annotations
 
@@ -9,65 +9,59 @@ from collections import Counter
 from pathlib import Path
 
 from playtest.tests import base  # noqa: F401
-from playtest import examples, testcells
+from playtest import examples, testcells, vanilla
 from playtest.tests import fixtures
 
 import tes4_plugin as tp
 
 
-class TestCellsTests(unittest.TestCase):
+class TestActorsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.dir = Path(tempfile.mkdtemp(prefix="testcells-"))
-        fixtures.fake_esm(cls.dir / "Oblivion.esm")
-        cls.esp, cls.lj = testcells.write(cls.dir)
+        cls.esm = fixtures.fake_esm(cls.dir / "Oblivion.esm")
+        cls.esp, _ = testcells.write(cls.dir, cls.esm)
         cls.pl = tp.load(cls.esp)
+        cls.recs = {r.editor_id: r for r in cls.pl.records if r.editor_id}
 
     def test_deterministic(self):
-        a, _ = testcells.build_plugin()
-        b, _ = testcells.build_plugin()
+        a, _ = testcells.build_plugin(self.esm)
+        b, _ = testcells.build_plugin(self.esm)
         self.assertEqual(a, b)
         self.assertEqual(a, self.esp.read_bytes())
 
-    def test_parses_back(self):
+    def test_actors_only_no_geometry(self):
         self.assertEqual(self.pl.errors, [])
-        self.assertEqual(self.pl.masters, ["Oblivion.esm"])
         c = Counter(r.sig for r in self.pl.records)
-        self.assertEqual(c["CELL"], 3)
+        self.assertEqual(c["CELL"], 1)
+        self.assertEqual(c["ACHR"], 5)
         self.assertEqual(c["NPC_"], 4)
-        self.assertEqual(c["PACK"], 4)
-        self.assertEqual(c["ACHR"], 6)
-        self.assertEqual(self.pl.num_records, len(self.pl.records))
+        for sig in ("STAT", "DOOR", "MISC", "REFR", "LIGH"):
+            self.assertEqual(c[sig], 0, f"no new {sig}: the playtest uses real vanilla content")
+        self.assertFalse(any(b"forge\\testcells" in r.data for r in self.pl.records), "no custom meshes")
 
-    def test_cells_and_children(self):
-        cells = {r.form_id: r.editor_id for r in self.pl.records if r.sig == "CELL"}
-        self.assertEqual(sorted(cells.values()), ["ForgeTestArena", "ForgeTestOpen", "ForgeTestStreet"])
-        by_cell = Counter(cells.get(r.parent) for r in self.pl.records if r.sig in ("REFR", "ACHR"))
-        self.assertTrue(all(by_cell[c] > 5 for c in cells.values()), by_cell)
-        flags = {r.editor_id: r.first("DATA")[0] for r in self.pl.records if r.sig == "CELL"}
-        self.assertEqual(flags, {"ForgeTestArena": 0x01, "ForgeTestStreet": 0x81, "ForgeTestOpen": 0x81})
+    def test_looks_copied_from_a_vanilla_npc(self):
+        npc = self.recs["ForgeStreetMerchant"]
+        donor = {s.sig: s.data for s in next(r for _, r in tp.iter_records(self.esm, {"NPC_"})).subrecords()}
+        for sig in ("HNAM", "ENAM", "FGGS", "FGGA", "FGTS", "HCLR"):
+            self.assertEqual(npc.first(sig), donor[sig], sig)
+        cnto = [struct.unpack_from("<I", x.data)[0] for x in npc.subrecords() if x.sig == "CNTO"]
+        self.assertIn(fixtures.SHIRT, cnto, "dressed in the donor's clothes")
 
-    def test_doors_link_both_ways(self):
-        refs = {r.form_id: r for r in self.pl.records if r.sig == "REFR"}
-        doors = {r.editor_id: r for r in refs.values() if r.first("XTEL")}
-        self.assertEqual(set(doors), {"ForgeArenaDoorRef", "ForgeStreetDoorRef"})
-        a, s = doors["ForgeArenaDoorRef"], doors["ForgeStreetDoorRef"]
-        self.assertEqual(struct.unpack_from("<I", a.first("XTEL"))[0], s.form_id)
-        self.assertEqual(struct.unpack_from("<I", s.first("XTEL"))[0], a.form_id)
-        self.assertTrue(a.flags & 0x400 and s.flags & 0x400, "load doors are persistent")
+    def test_plain_without_esm(self):
+        data, lay = testcells.build_plugin(None)
+        self.assertIsNone(lay["appearance"])
+        self.assertNotIn(b"FGGS", data)
 
-    def test_merchant_has_schedule_and_services(self):
-        recs = {r.editor_id: r for r in self.pl.records if r.editor_id}
-        npc = recs["ForgeStreetMerchant"]
+    def test_merchant_schedule_and_services(self):
+        npc = self.recs["ForgeStreetMerchant"]
         pk = [struct.unpack("<I", x.data)[0] for x in npc.subrecords() if x.sig == "PKID"]
-        self.assertEqual(pk, [recs["ForgeMerchantWorkPkg"].form_id, recs["ForgeMerchantEveningPkg"].form_id])
-        aidt = npc.first("AIDT")
-        self.assertTrue(struct.unpack_from("<I", aidt, 4)[0] & 0x400)
-        work = recs["ForgeMerchantWorkPkg"]
+        self.assertEqual(pk, [self.recs["ForgeMerchantWorkPkg"].form_id, self.recs["ForgeMerchantEveningPkg"].form_id])
+        self.assertTrue(struct.unpack_from("<I", npc.first("AIDT"), 4)[0] & 0x400)
+        work = self.recs["ForgeMerchantWorkPkg"]
         self.assertEqual(struct.unpack("<bbBbi", work.first("PSDT"))[3:], (8, 12))
-        self.assertEqual(struct.unpack("<iIi", work.first("PLDT"))[1], recs["ForgeStreetStallRef"].form_id)
+        self.assertEqual(struct.unpack("<iIi", work.first("PLDT"))[0], 2, "near current location")
         self.assertEqual(len(npc.first("DATA")), 33)
-        self.assertEqual(len(recs["ForgeTestClass"].first("DATA")), 52)
 
     def test_lints_clean_against_masters(self):
         import modlint
@@ -75,42 +69,41 @@ class TestCellsTests(unittest.TestCase):
         self.assertEqual(r["summary"].get("error", 0), 0, r["issues"])
         self.assertEqual(r["summary"].get("warning", 0), 0, r["issues"])
 
-    def test_cell_keys(self):
-        self.assertEqual(testcells.cell_key(None), "arena")
-        self.assertEqual(testcells.cell_key("ForgeTestStreet"), "street")
-        self.assertEqual(testcells.cell_key("weather"), "open")
-        with self.assertRaises(ValueError):
-            testcells.cell_key("Imperial City")
-
     def test_example_firebolt_plugin(self):
         p = examples.firebolt(self.dir / "ForgeExampleFirebolt.esp")
-        pl = tp.load(p)
-        spel = [r for r in pl.records if r.sig == "SPEL"][0]
+        spel = [r for _, r in tp.iter_records(p, {"SPEL"})][0]
         self.assertEqual(spel.editor_id, "ForgeExampleFireboltSpell")
-        efit = spel.first("EFIT")
-        self.assertEqual(struct.unpack("<4sIIIIi", efit), (b"FIDG", 25, 0, 0, 2, -1))
-        import modlint
-        self.assertEqual(modlint.lint_plugin(p, self.dir, True, None)["summary"].get("error", 0), 0)
+        self.assertEqual(struct.unpack("<4sIIIIi", spel.first("EFIT")), (b"FIDG", 25, 0, 0, 2, -1))
 
 
-class KitTests(unittest.TestCase):
-    def test_kit_meshes_build_and_parse(self):
-        try:
-            import numpy  # noqa: F401
-            import PIL  # noqa: F401
-        except ImportError:
-            self.skipTest("assetkit needs numpy + Pillow (tools/requirements-assetkit.txt)")
-        from assetkit import nif as N
-        d = Path(tempfile.mkdtemp(prefix="kit-"))
-        files = testcells.build_kit(d)
-        nifs = [f for f in files if f.suffix == ".nif"]
-        self.assertEqual(len(nifs), len(testcells.KIT))
-        for f in nifs:
-            n = N.read(f.read_bytes()) if hasattr(N, "read") else None
-            self.assertTrue(f.stat().st_size > 500)
-            if n is not None:
-                self.assertEqual(N.write(n), f.read_bytes(), f"{f.name} round-trips")
-        self.assertTrue((d / "textures" / "forge" / "testcells" / "stone.dds").is_file())
+class VanillaTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = Path(tempfile.mkdtemp(prefix="vanilla-"))
+        cls.esm = fixtures.fake_esm(cls.dir / "Oblivion.esm")
+        cls.idx = vanilla.load_index(cls.esm, cls.dir / "idx.json")
+
+    def test_defaults(self):
+        a = vanilla.resolve("arena", self.idx)
+        self.assertEqual((a.boot, a.cell_edid), ("coc ArenaArenaFixture", "ArenaArenaFixture"))
+        s = vanilla.resolve("street", self.idx)
+        self.assertEqual((s.boot, s.moveto, s.world_edid), ("cow ICMarketDistrict 10 6", "0000C002", "ICMarketDistrict"))
+        o = vanilla.resolve("weather", self.idx)
+        self.assertEqual(o.boot, "cow Tamriel 5 -3")
+
+    def test_custom_and_errors(self):
+        self.assertEqual(vanilla.resolve("ArenaDecoyFixture", self.idx).boot, "coc ArenaDecoyFixture")
+        self.assertEqual(vanilla.resolve("marker:Weye", self.idx).moveto, "0000C001")
+        with self.assertRaises(vanilla.VanillaError):
+            vanilla.resolve("NoSuchCell", self.idx)
+        with self.assertRaises(vanilla.VanillaError):
+            vanilla.resolve("marker:Nowhere", self.idx)
+
+    def test_cache_and_search(self):
+        again = vanilla.load_index(self.esm, self.dir / "idx.json")
+        self.assertEqual(again["interiors"], self.idx["interiors"])
+        hits = vanilla.search("weye", self.idx)
+        self.assertTrue(hits and "marker:Weye" in hits[0])
 
 
 if __name__ == "__main__":

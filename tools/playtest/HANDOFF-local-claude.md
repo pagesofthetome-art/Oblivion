@@ -1,122 +1,122 @@
-# Handoff to the local Claude: run the TES4Forge playtest on Yuri's PC
+# Handoff to the local Claude: run 2 of the TES4Forge playtest on Yuri's PC
 
-You are the Claude running on Yuri's Windows PC, with file access. A cloud Claude built **Track E of TES4Forge** (`forge playtest`, `forge test` and `forge preview`) without a PC. Nothing in it has run against the real game yet.
-
-**Your job:**
-1. Check the PC.
+You are the Claude on Yuri's Windows PC. The cloud Claude owns `tools/playtest`. Your job:
+1. Read this file.
 2. Write Yuri **one `.bat`** that runs the test and collects the evidence.
-3. After Yuri runs it, read the results and write a **handoff message back to the cloud Claude**, in the format at the end of this file.
+3. After he runs it, write the reply in the format at the end of this file.
 
-Read `AGENTS.md` and `tools/playtest/README.md` first. Speak to Yuri in plain, short steps. He plays with a PS5 pad.
+Speak to Yuri in plain, short steps. He plays with a PS5 pad.
 
-## Hard rules (do not break them)
-- **Never write** to the Steam copy (`C:\Program Files (x86)\Steam\steamapps\common\Oblivion`) or to anything under `%APPDATA%\Vortex`.
-- **Never edit** `%LOCALAPPDATA%\Oblivion\Plugins.txt` or `Documents\My Games\Oblivion\Oblivion.ini` by hand. Only forge swaps them, and forge restores them.
-- **Do nothing while Oblivion or the Construction Set is running.** The `.bat` must check for that first and stop.
-- Don't print or copy `Oblivion\.cs_bridge_token`.
-- If a restore ever looks wrong, the fix is `forge playtest restore`. Don't improvise.
+Code: branch `claude/serene-maxwell-03d2fh` (PR https://github.com/pagesofthetome-art/Oblivion/pull/2).
+Pull the latest commit. Read `tools/playtest/README.md`.
 
-## 1. Get the code
-The work is on branch `claude/serene-maxwell-03d2fh` (PR https://github.com/pagesofthetome-art/Oblivion/pull/2). It is based on the Phase 1 branch `claude/jolly-pasteur-hiurwl`.
+## What changed since run 1 (Yuri's correction is done)
+- **The playtest is now real Oblivion in real vanilla cells.** The placeholder meshes, test
+  geometry and generated cells are gone.
+  - **Locations:** `arena` is the vanilla Arena interior (`coc`). `street` is the Market District
+    map marker (`cow` + `moveto`). `open` is the Weye map marker. They are picked from the GOG
+    copy's own Oblivion.esm, which is only read.
+  - **Test actors:** `ForgeTestCells.esp` now holds only the actors (dummy, caster, merchant,
+    townsfolk). They wear the faces, hair and clothes of real vanilla NPCs, and the first batch
+    moves them next to the player.
+- **The browser preview is optional.** Nothing opens it any more.
+- **The GOG path is configurable.** Forge also finds a sibling `..\Oblivion` next to the clone, so
+  `Desktop\Games\Oblivion-repo` → `Desktop\Games\Oblivion` works without the junction. You can also
+  write `forge-builds\playtest\machine.json` with `{"game_dir": "C:\\Users\\...\\Desktop\\Games\\Oblivion"}`.
+  The junction may stay, but please **remove it** if nothing else needs it, and tell me.
+- **Boot diagnostics.** Each run folder now holds:
+  - `boot-trace.jsonl`: menu stack, menu mode, focus and window, twice a second;
+  - `shots\*.png`: main menu, console, loaded game, any error;
+  - `Plugins.test.txt` and `Oblivion.test.ini`.
+- **Boot plan B.** If the console at the main menu doesn't start a game, forge presses Continue on
+  a dedicated test save, then uses the in-game console. Make that save once with
+  `forge playtest make-save`.
 
-The workspace root is the repo root: `Desktop\Games`, where `forge.cmd`, `Controller\` and `Oblivion\` sit. Check out that branch, or copy `tools\playtest\`, `tools\forge\cli.py`, `preview\forge-test-cells.html` and `forge.cmd` from it.
+## Answers to your questions
+1. **Why the arena never loaded.** The timing shows the main menu was detected at 12.9 s (menu id
+   1044), so the menu probe works. `coc ForgeTestArena` was then typed, but for 120 s the main menu
+   never closed and no loading screen appeared. So the typed command never ran.
+   - Most likely the console didn't open at the main menu, or the typing didn't reach it.
+   - It was not a mesh problem: nothing loaded at all.
+   - The new screenshots (`shots\NN-console-at-menu.png`, `NN-A-no-load.png`) will show which it was.
+2. **Window in front.** Forge reported it focused before typing, but I can't confirm Yuri saw it.
+   The trace now logs focus and the window rectangle every 0.5 s, and the screenshots show the
+   screen.
+3. **Logs I need** (copy them if they exist; list the ones that don't):
+   - `<GOG>\obse_loader.log`, `<GOG>\obse.log`, `<GOG>\Data\OBSE\obse.log`
+   - `<GOG>\Data\OBSE\Plugins\NorthernUI.log`, `<GOG>\Data\OBSE\Plugins\NorthernUI.ini`
+   - `<GOG>\Data\OBSE\obse.ini`
+   - the **whole newest** `forge-builds\playtest\runs\<time>\` folder: `shots\`, `boot-trace.jsonl`,
+     `result.json`, `forge_test.log`, `playtest_manifest.json`, `Plugins.test.txt`, `Oblivion.test.ini`
+   - `forge-builds\playtest\guardian.log`, `Controller\freeze_report.txt`, and the last 200 lines
+     of `Controller\controller_log.txt`
+   - a listing of `Documents\My Games\Oblivion\Saves\ForgePlaytest\`
+   - the output of `forge playtest cells` (which vanilla cells were picked)
 
-Stop and tell Yuri if the workspace has uncommitted changes you'd overwrite.
+## Hard rules (unchanged)
+- Never write to the Steam copy or `%APPDATA%\Vortex`.
+- Never hand-edit the real `Plugins.txt` or `Oblivion.ini`.
+- Do nothing while Oblivion or the CS runs.
+- Never send keys to the game yourself.
+- If anything looks wrong: `forge playtest restore`, then `forge playtest status`.
+- Don't patch `tools/playtest`: report instead. One-line environment fixes are OK if you say what you changed.
 
-## 2. Pre-checks: read-only, report every result
-Write the `.bat` so that it prints each of these:
+## The .bat to write
+1. **Pre-checks.**
+   - No Oblivion, OblivionLauncher, obse_loader or TESConstructionSet in `tasklist`.
+   - `forge playtest status` (hashes).
+   - The unit tests: `cd tools && python -m unittest discover -s playtest/tests -t .` should give
+     **70 OK**, and `forge/tests` **24 OK**.
+2. **`forge playtest cells`**: save its output. It builds the actors and prints the chosen
+   `arena` / `street` / `open` locations. The first run indexes Oblivion.esm, which can take a minute.
+3. **`call tools\playtest\acceptance.bat`**. It runs: status → `--dry-run` → the real run with
+   `--quit` → `forge test` → status.
+4. **If the real run's error says "Run `forge playtest make-save` once"** (plan A failed and there
+   is no save yet):
+   - Tell Yuri in big letters: "The game will open at the main menu. With the pad: NEW → skip the
+     intro with Cross → finish the character screens any way you like → then wait; forge takes
+     over, puts you in the arena, saves, and quits."
+   - Run `forge playtest make-save`, then run `acceptance.bat` once more.
+5. **Collect** everything in "Logs I need" into `forge-builds\playtest\handoff\`.
 
-1. **Python and libraries.** Check that `python --version` works (`forge.cmd` calls `python`). Check that numpy, Pillow and PyYAML import; if not, install them with `python -m pip install -r tools\requirements-assetkit.txt -r tools\requirements-forge.txt`.
-2. **The test game** = the GOG copy at `<repo>\Oblivion`:
-   - `Oblivion\obse_loader.exe` and `Oblivion\Data\Oblivion.esm` exist;
-   - list the DLC `.esp` files in `Oblivion\Data`;
-   - `Oblivion\Data\vortex.deployment.json` must **not** exist (if it does, forge will refuse, correctly);
-   - `Oblivion\Data\OBSE\Plugins\NorthernUI.dll` exists? If not, the pad only works through the companion. Note it, but don't install anything yet.
-3. **Paths forge will use:** run `forge playtest status`. It prints whether the profile is off, plus the SHA-256 of the real Plugins.txt and Oblivion.ini. If it says the profile is ON, run `forge playtest restore` first and report that.
-4. **Unit tests:** `cd tools && python -m unittest discover -s playtest/tests -t .` should print `Ran 59 tests ... OK`, and the same for `forge/tests` (24). Paste failures verbatim.
-5. **Nothing running:** `tasklist` shows no `Oblivion.exe`, `OblivionLauncher.exe`, `obse_loader.exe` or `TESConstructionSet.exe`.
+Before the run, tell Yuri: close Oblivion, keep hands off the keyboard and mouse until the game
+quits by itself (about 40 s), and leave the game window in front.
 
-## 3. The run
-`tools\playtest\acceptance.bat` already does the core run:
-- hashes before;
-- `--dry-run`;
-- the real run with `--quit`;
-- `forge test`;
-- hashes after;
-- `forge preview --open`.
-
-Its output goes to `forge-builds\playtest\acceptance.txt`.
-
-Your `.bat` should:
-1. Do the pre-checks above, then `call tools\playtest\acceptance.bat`.
-2. Then **collect the evidence** into one folder, `forge-builds\playtest\handoff\`:
-   - `acceptance.txt`;
-   - the newest `forge-builds\playtest\runs\<timestamp>\` folder, whole: `result.json`, `forge_test.log`, `playtest_manifest.json`;
-   - `forge-builds\playtest\guardian.log`, if it exists;
-   - `Controller\freeze_report.txt` and the last 200 lines of `Controller\controller_log.txt`, if they exist;
-   - from the GOG copy: `Oblivion\obse_loader.log`, `Oblivion\obse.log` (or `Data\OBSE\obse.log`) and `Oblivion\Data\OBSE\Plugins\NorthernUI.log`, if they exist;
-   - a listing (`dir /s /b`) of `Oblivion\Data\meshes\forge` and `Oblivion\fpt*.txt`. Both should be **empty or missing** after the run, because forge removes what it staged.
-3. **Never** pause in the middle of the boot, and never send keys to the game. Forge does the typing.
-
-Tell Yuri, in big plain text before he starts:
-- close Oblivion;
-- don't touch the keyboard or mouse for about 40 seconds;
-- the game will open, jump into a stone arena, then quit by itself;
-- after that a browser page opens: walk around with WASD or the pad, click the NPCs, then close it.
-
-## 4. Short hands-on check (optional, after the automatic run)
-If Yuri is up for it, ask him to run `forge playtest tools\playtest\examples\example-firebolt.yaml --cell street`. This time the game stays open. With the **pad only**, he should:
-- walk to the merchant ("Ilvia the Trader"), talk to her and open Barter;
-- go through the door at the far end of the street and check he arrives in the arena;
-- cast "Forge Firebolt" at the training dummy (R1) and check its health bar drops;
+## Optional hands-on check (only if the automatic run passed)
+`forge playtest tools\playtest\examples\example-firebolt.yaml --cell street`. The game stays open.
+With the **pad only**:
+- talk to "Ilvia the Trader" (she should be standing right in front of you) and Barter;
+- walk into a real Market District shop through its door;
 - quit the game normally.
 
-Then run `forge test` and `forge playtest status`. Note anything that needed the keyboard, any invisible or floating geometry, NPCs that don't move or fall through the floor, and any popup the pad couldn't close.
+Then `forge test` and `forge playtest status`. Note anything that needed the keyboard, NPCs
+falling through the world or stuck in walls, and any popup the pad couldn't close.
 
-## 5. What to look for, and the likely failures
-If something below happens, record it exactly (copy text and timings). **Don't patch the code yourself**: the cloud Claude owns `tools/playtest`. The exception is a one-line environment fix, and you must say what you changed.
-
-| Symptom (in `acceptance.txt` or `result.json` → `events`, `error`) | What it tells the cloud Claude |
-|---|---|
-| `the main menu never appeared` | The menu probe (`oblivion_osk.GameUIProbe`) didn't see menu 1044. Note what the screen showed. |
-| `the console did not open; not typing into the game` | The console doesn't register as menu mode. Note whether the console was visibly open on screen. |
-| `... did not finish loading`, or the game sits at the main menu with "coc ..." typed | `coc` from the main menu didn't work. Note what happened on screen. |
-| `GetInCell >> 0` / "player was not in ForgeTestArena" | `moveto` or the cell name failed. |
-| `no FORGE markers in the log` | xOBSE `PrintC` didn't run from a batch file. Check `obse.log`. |
-| `no forge_test.log` | `scof` wrote elsewhere, or `bat` didn't find `fpt1.txt`. Search the GOG folder and My Games for `forge_test.log`. |
-| step 4 (`cast`) fails, or health unchanged | The console `cast` from an NPC didn't fire. |
-| Invisible floor/walls, the player falls, or the game crashes on entering the cell | Kit mesh or record problem. Copy any crash text and `freeze_report.txt`. |
-| `FROZE` | Attach `freeze_report.txt`. |
-| `restore: ... DIFFERENT`, or hashes before ≠ after | **Most important.** Run `forge playtest restore` at once, then `forge playtest status`, and report both. |
-
-**Boot time:** report `boot_seconds` from `result.json`. The target is under 30 s.
-
-## 6. The handoff message back to the cloud Claude
-When the run is done, write `forge-builds\playtest\handoff\HANDOFF-to-cloud.md`, and also give Yuri the same text to paste into the cloud session. Use exactly these sections:
-
+## Reply format (write `forge-builds\playtest\handoff\HANDOFF-to-cloud.md` and give Yuri the same text)
 ```
-# Track E PC results (<date>)
-Branch/commit tested: <git rev-parse HEAD>
+# Track E PC results run 2 (<date>)
+Commit tested: <git rev-parse HEAD>
 ## Pre-checks
-python/libs, GOG game files, DLC list, vortex.deployment.json absent?, NorthernUI.dll present?, unit tests (n OK / failures)
+tests (playtest n / forge n), GOG path used (auto / machine.json / junction), NorthernUI present?
+## forge playtest cells
+<paste output>
 ## Automatic run
-verdict: <PASS/FAIL/FROZE/NOT-RUN>   boot_seconds: <n>   checks: <passed>/<total>
-restore_check: plugins_txt same=<true/false>, ini same=<true/false>; hashes before/after: <...>
-staged files left behind: <none / list>
+verdict / boot_strategy / boot_seconds / checks passed of total
+restore_check (same?) and hashes before/after
 events (from result.json): <paste>
+error (if any): <paste exactly>
 forge test report: <paste>
-forge_test.log: <paste whole file if under 100 lines, else first 100>
+forge_test.log: <paste, first 100 lines>
+## make-save (if it was needed)
+what Yuri did, result JSON, then the second acceptance run's verdict/boot_strategy/boot_seconds
+## Screenshots
+for each file in shots\: name + one line on what it shows (main menu? console visible? which place?)
+## Boot trace
+the lines around the failure, or the first 40 lines if it passed
 ## What Yuri saw on screen
-<plain notes: menu, console, loading, arena look, anything odd>
 ## Hands-on check (if done)
-merchant/barter, door, firebolt on dummy, pad-only? popups? geometry?
-## Preview page
-opened? arena visible? NPC click shows packages/schedule? pad worked?
-## Logs attached / excerpts
-obse.log / NorthernUI.log / freeze_report.txt / guardian.log excerpts (relevant lines only)
+## Logs (relevant excerpts only) and what's missing
 ## Anything you changed
-<files and why, or "nothing">
-## Questions / blockers for the cloud Claude
+## Questions / blockers
 ```
-
-Keep the facts exact: paste text, don't paraphrase error messages. If a step was skipped, say so and why.
+Paste text exactly. If a step was skipped, say so and why.

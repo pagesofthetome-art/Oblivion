@@ -3,7 +3,7 @@
 Source: the spec's `test_plan` (or a JSON/YAML file given with --manifest):
 
     test_plan:
-      cell: arena                  # arena | street | open (or the cell EditorID)
+      cell: arena                  # arena | street | open | <vanilla InteriorEditorID> | marker:<Map marker>
       steps:
         - addspell: ForgeExampleFireboltSpell
         - check: {ref: player, fn: HasSpell, args: [ForgeExampleFireboltSpell], expect: "== 1"}
@@ -227,13 +227,25 @@ def marker(*parts) -> str:
     return "FORGE|" + "|".join(str(p) for p in parts)
 
 
-def build(plan: dict, forms: FormTable, *, cell_edid: str, start_ref: str, plugin: str, spec: str | None,
+def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: str, spec: str | None,
           run_id: str | None = None) -> dict:
-    """Return the manifest dict, including the compiled batch chunks."""
+    """Return the manifest dict, including the compiled batch chunks.
+
+    location: vanilla.Location.to_dict(): boot command, optional moveto ref, cell/world for the probe.
+    bring: [(ref EditorID, dx, dy, dz)] test actors moved next to the player.
+    """
     run_id = run_id or secrets.token_hex(4)
     chunks: list[dict] = [{"wait_before": 0.0, "lines": []}]
-    head = [f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"', f"player.moveto {forms.form(start_ref)}",
-            f'printc "{marker("CELL", cell_edid)}"', f"player.GetInCell {cell_edid}"]
+    head = [f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"']
+    if location.get("moveto"):
+        head.append(f"player.moveto {location['moveto']}")
+    for ref, dx, dy, dz in bring:
+        head.append(f"{forms.form(ref)}.moveto player {dx} {dy} {dz}")
+    head.append(f'printc "{marker("CELL", location.get("cell_edid") or location.get("world_edid"))}"')
+    if location.get("cell_edid"):
+        head.append(f"player.GetInCell {location['cell_edid']}")
+    else:
+        head.append(f"player.GetInWorldspace {location['world_edid']}")
     chunks[0]["lines"] += head
     for st in plan["steps"]:
         if st["do"] == "wait":
@@ -247,8 +259,9 @@ def build(plan: dict, forms: FormTable, *, cell_edid: str, start_ref: str, plugi
         c["command"] = f"bat {BATCH_PREFIX}{i}"
     return {
         "forge_playtest": MANIFEST_VERSION, "run_id": run_id, "spec": spec, "plugin": plugin,
-        "cell": cell_edid, "start_ref": start_ref, "load_order": forms.load_order,
-        "log": LOG_NAME, "steps": plan["steps"], "notes": plan.get("notes", []), "chunks": chunks,
+        "cell": location.get("cell_edid") or location.get("world_edid"), "location": location,
+        "load_order": forms.load_order, "log": LOG_NAME, "steps": plan["steps"], "notes": plan.get("notes", []),
+        "chunks": chunks,
     }
 
 

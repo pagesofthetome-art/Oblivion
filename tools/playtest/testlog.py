@@ -1,7 +1,7 @@
 """Read forge_test.log (the console output captured with `scof`) and judge the run.
 
 A run passes only when: the BEGIN marker carries this manifest's run id, the player reached the
-test cell (GetInCell >> 1), every check produced a value that meets its expectation, no step hit a
+test location (GetInCell / GetInWorldspace >> 1), every check produced a value that meets its expectation, no step hit a
 console error, the END marker was written, and there was at least one check.
 """
 
@@ -21,6 +21,11 @@ OPS = {"==": lambda a, b: abs(a - b) < 1e-4, "!=": lambda a, b: abs(a - b) >= 1e
 def read_lines(path: Path) -> list[str]:
     raw = Path(path).read_bytes()
     return [l.strip() for l in raw.decode("cp1252", "replace").splitlines() if l.strip()]
+
+
+def _is_probe(fn: str) -> bool:
+    f = fn.lower().replace(" ", "")
+    return "getincell" in f or "getinworldspace" in f
 
 
 def parse(lines: list[str]) -> dict:
@@ -49,12 +54,12 @@ def parse(lines: list[str]) -> dict:
             continue
         v = VALUE_RE.match(l)
         if cur == "cell":
-            if v and "getincell" in v.group("fn").lower().replace(" ", ""):
+            if v and _is_probe(v.group("fn")):
                 out["in_cell"] = float(v.group("v"))
             continue
         if cur is None:
             out["unmarked"].append(l)
-            if v and "getincell" in v.group("fn").lower().replace(" ", "") and out["in_cell"] is None:
+            if v and _is_probe(v.group("fn")) and out["in_cell"] is None:
                 out["in_cell"] = float(v.group("v"))
             continue
         s = out["steps"][cur]

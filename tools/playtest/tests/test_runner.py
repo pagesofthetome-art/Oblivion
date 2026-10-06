@@ -1,4 +1,4 @@
-"""End to end with a fake game: profile on, quick boot, batches, checks, restore."""
+"""End to end with a fake game: profile on, quick boot into a vanilla cell, batches, checks, restore."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ import json
 import unittest
 from pathlib import Path
 
-from playtest.tests.base import MachineCase
-from playtest import runner
+from playtest.tests.base import MachineCase, tree_hash
+from playtest import profile, runner
+from playtest.tests import fixtures
 from playtest.tests.fakegame import FakePlatform
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "example-firebolt.yaml"
@@ -17,45 +18,86 @@ class RunnerTests(MachineCase):
     def setUp(self):
         super().setUp()
         self.logs: list[str] = []
-        # the kit needs numpy; the runner tests stage a tiny stand-in kit instead
-        kit = self.m.state_dir / "testcells" / "Data"
-        (kit / "meshes" / "forge" / "testcells").mkdir(parents=True)
-        (kit / "meshes" / "forge" / "testcells" / "floor.nif").write_bytes(b"nif")
-        (kit / "kit.ok").write_text("meshes/forge/testcells/floor.nif")
         (self.m.data / "OBSE" / "Plugins").mkdir(parents=True)
         (self.m.data / "OBSE" / "Plugins" / "NorthernUI.dll").write_bytes(b"dll")
-        self.gog_before = __import__("playtest.tests.base", fromlist=["tree_hash"]).tree_hash(self.fx["gog"])
+        self.gog_before = tree_hash(self.fx["gog"])
 
     def opts(self, **kw):
-        o = runner.Options(log=self.logs.append, quit_when_done=True, **kw)
-        return o
+        return runner.Options(log=self.logs.append, quit_when_done=True, **kw)
 
-    def test_example_passes_boots_fast_and_restores(self):
-        p = FakePlatform(self.m.game_dir)
+    def fake(self, **behaviour):
+        behaviour.setdefault("save_dir", str(self.m.save_dir))
+        return FakePlatform(self.m.game_dir, behaviour)
+
+    def test_example_boots_into_the_vanilla_arena_and_passes(self):
+        p = self.fake()
         res = runner.run(EXAMPLE, self.opts(), self.m, p)
         self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs) + json.dumps(res, indent=1))
         self.assertLess(res["boot_seconds"], 30)
-        self.assertEqual(res["checks"], 4)
+        self.assertEqual(res["boot_strategy"], "A: console at the main menu")
+        self.assertEqual(res["location"]["boot"], "coc ArenaArenaFixture")
         self.assertTrue(all(v["same"] for v in res["restore_check"].values()))
         self.assertRealSetupUntouched()
         hist = p.game.history
-        self.assertEqual(hist[0], "coc ForgeTestArena")
+        self.assertEqual(hist[0], "coc ArenaArenaFixture")
         self.assertIn("bat fpt1", hist)
-        self.assertIn("bat fpt2", hist)
+        self.assertTrue(any(h.endswith(".moveto player 0 600 0") for h in hist), "dummy brought to the player")
         self.assertFalse([h for h in hist if h.startswith("GAME KEYS")], "typed into the game, not the console")
-        self.assertTrue(any("guardian.py" in " ".join(a) for a in p.spawned))
         run = Path(res["run_dir"])
-        self.assertTrue((run / "forge_test.log").is_file())
-        self.assertTrue((run / "playtest_manifest.json").is_file())
+        for f in ("forge_test.log", "playtest_manifest.json", "boot-trace.jsonl", "Plugins.test.txt",
+                  "Oblivion.test.ini"):
+            self.assertTrue((run / f).is_file(), f)
+        shots = sorted(x.name for x in (run / "shots").iterdir())
+        self.assertTrue(any("main-menu" in s for s in shots) and any("in-game" in s for s in shots), shots)
+        trace = [json.loads(l) for l in (run / "boot-trace.jsonl").read_text().splitlines()]
+        self.assertTrue(any(1044 in (t.get("menus") or []) for t in trace), "menu stack is traced")
+        plugins = (run / "Plugins.test.txt").read_text().split()
+        self.assertEqual([x for x in plugins if x.endswith((".esm", ".esp"))],
+                         ["Oblivion.esm", "DLCShiveringIsles.esp", "ForgeExampleFirebolt.esp", "ForgeTestCells.esp"])
+
+    def test_street_is_a_real_exterior(self):
+        p = self.fake()
+        res = runner.run(EXAMPLE, self.opts(cell="street"), self.m, p)
+        self.assertEqual(p.game.history[0], "cow ICMarketDistrict 10 6")
+        self.assertIn("player.moveto 0000C002", p.game.history)
+        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
+        self.assertRealSetupUntouched()
+
+    def test_menu_console_fails_without_save_explains_make_save(self):
+        p = self.fake(menu_console=False)
+        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        self.assertEqual(res["verdict"], "NOT-RUN")
+        self.assertIn("make-save", res["error"])
+        self.assertTrue(any("A-no-load" in s.name for s in (Path(res["run_dir"]) / "shots").iterdir()))
+        self.assertRealSetupUntouched()
+
+    def test_menu_console_fails_continue_from_test_save(self):
+        self.m.save_dir.mkdir(parents=True)
+        (self.m.save_dir / "ForgePlaytestBase.ess").write_bytes(b"save")
+        p = self.fake(menu_console=False)
+        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        self.assertEqual(res["verdict"], "PASS", "\n".join(self.logs))
+        self.assertIn(res["boot_strategy"], ("B: Continue + in-game console",
+                                             "A: console at the main menu (+ again in game)"))
+        self.assertEqual(p.game.cell, "ArenaArenaFixture")
+        self.assertEqual(p.game.history[-1], "qqq")
+        self.assertRealSetupUntouched()
+
+    def test_make_save(self):
+        p = self.fake(new_game_after=20.0)
+        res = runner.make_save(self.opts(), self.m, p)
+        self.assertTrue(res["made"], res)
+        self.assertTrue((self.m.save_dir / "ForgePlaytestBase.ess").is_file())
+        self.assertIn("coc ArenaArenaFixture", p.game.history)
+        self.assertRealSetupUntouched()
 
     def test_spell_that_does_nothing_fails(self):
-        p = FakePlatform(self.m.game_dir, {"damage": 0.0})
-        res = runner.run(EXAMPLE, self.opts(), self.m, p)
+        res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(damage=0.0))
         self.assertEqual(res["verdict"], "FAIL")
         self.assertRealSetupUntouched()
 
     def test_freeze_is_killed_and_restored(self):
-        p = FakePlatform(self.m.game_dir, {"freeze_at": 7.0})
+        p = self.fake(freeze_at=7.0)
         res = runner.run(EXAMPLE, self.opts(hang_seconds=5), self.m, p)
         self.assertEqual(res["verdict"], "FROZE")
         self.assertIn(p.GAME_PID, p.killed)
@@ -70,7 +112,7 @@ class RunnerTests(MachineCase):
         self.assertRealSetupUntouched()
 
     def test_dry_run_swaps_and_restores(self):
-        p = FakePlatform(self.m.game_dir)
+        p = self.fake()
         res = runner.run(EXAMPLE, self.opts(dry_run=True), self.m, p)
         self.assertEqual(res["verdict"], "DRY-RUN")
         self.assertEqual(p.launched, 0)
@@ -85,26 +127,39 @@ class RunnerTests(MachineCase):
         self.assertRealSetupUntouched()
 
     def test_leftover_journal_is_restored_first(self):
-        from playtest import profile
         s = profile.Session(self.m, log=lambda x: None)
         s.begin()
         s.swap_in(self.m.plugins_txt, b"garbage")       # a previous run died here
-        res = runner.run(EXAMPLE, self.opts(dry_run=True), self.m, FakePlatform(self.m.game_dir))
+        res = runner.run(EXAMPLE, self.opts(dry_run=True), self.m, self.fake())
         self.assertEqual(res["verdict"], "DRY-RUN")
         self.assertRealSetupUntouched()
 
     def test_masters_come_from_the_play_copy_read_only(self):
-        from playtest.tests import fixtures
         mod = fixtures.tiny_esp(self.tmp / "work" / "NeedsRebirth.esp", ["Oblivion.esm", "RebirthPlus.esp"])
         plan = self.tmp / "work" / "NeedsRebirth.playtest.json"
-        plan.write_text(json.dumps({"test_plan": {"cell": "street", "steps": [
-            {"check": {"ref": "player", "fn": "GetInCell", "args": ["ForgeTestStreet"], "expect": "== 1"}}]}}))
-        p = FakePlatform(self.m.game_dir)
-        res = runner.run(mod, self.opts(), self.m, p)
+        plan.write_text(json.dumps({"test_plan": {"cell": "arena", "steps": [
+            {"check": {"ref": "ForgeArenaDummyRef", "fn": "GetDead", "expect": "== 0"}}]}}))
+        res = runner.run(mod, self.opts(), self.m, self.fake())
         man = json.loads((Path(res["run_dir"]) / "playtest_manifest.json").read_text())
         self.assertEqual(man["load_order"][-3:], ["RebirthPlus.esp", "NeedsRebirth.esp", "ForgeTestCells.esp"])
         self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
         self.assertRealSetupUntouched()
+
+
+class MachineDetectTests(MachineCase):
+    def test_sibling_gog_copy_is_found(self):
+        repo = self.tmp / "Games" / "Oblivion-repo"          # Yuri's clone next to the GOG copy
+        repo.mkdir(parents=True)
+        m = profile.Machine.detect(env={"USERPROFILE": str(self.tmp)}, repo=repo)
+        self.assertEqual(m.game_dir, self.fx["gog"])
+
+    def test_machine_json_overrides(self):
+        repo = self.tmp / "elsewhere"
+        state = repo / "forge-builds" / "playtest"
+        state.mkdir(parents=True)
+        (state / "machine.json").write_text(json.dumps({"game_dir": str(self.fx["gog"])}))
+        m = profile.Machine.detect(env={"USERPROFILE": str(self.tmp)}, repo=repo)
+        self.assertEqual(m.game_dir, self.fx["gog"])
 
 
 if __name__ == "__main__":
