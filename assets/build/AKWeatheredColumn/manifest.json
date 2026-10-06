@@ -1,0 +1,36 @@
+{
+  "id": "AKWeatheredColumn",
+  "recipe": "assets\\recipes\\AKWeatheredColumn.json",
+  "built": "2026-10-04T10:28:32",
+  "generator": "column",
+  "profile": "static",
+  "files": [
+    "meshes\\AK\\Architecture\\WeatheredColumn.nif",
+    "textures\\AK\\Architecture\\WeatheredColumn.dds",
+    "textures\\AK\\Architecture\\WeatheredColumn_n.dds"
+  ],
+  "stats": {
+    "vertices": 170,
+    "triangles": 256,
+    "bounds_min": [
+      -13.5,
+      -13.5,
+      0.0
+    ],
+    "bounds_max": [
+      13.5,
+      13.5,
+      160.0
+    ],
+    "texture_size": 512,
+    "bound_radius": 81.131
+  },
+  "record_hints": {
+    "MODL": "AK\\Architecture\\WeatheredColumn.nif",
+    "ICON": null,
+    "type": "STAT",
+    "editor_id": "AKWeatheredColumn",
+    "name": "",
+    "template": "ArenaColumn02"
+  }
+}

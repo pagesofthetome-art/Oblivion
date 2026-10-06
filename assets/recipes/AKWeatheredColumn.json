@@ -1,0 +1,14 @@
+{
+  "id": "AKWeatheredColumn",
+  "description": "Example static recipe: a weathered stone column (tests the static profile and Z-up conventions).",
+  "generator": "column",
+  "params": {"height": 160.0, "radius": 10.0, "segments": 16, "base_height": 12.0},
+  "materials": {"shaft": {"kind": "stone", "color": "#b9b2a4", "seed": 21}},
+  "texture_size": 512,
+  "nif": {"profile": "static", "havok_material": "stone", "glossiness": 10.0},
+  "paths": {
+    "mesh": "meshes\\AK\\Architecture\\WeatheredColumn.nif",
+    "texture": "textures\\AK\\Architecture\\WeatheredColumn.dds"
+  },
+  "record": {"type": "STAT", "editor_id": "AKWeatheredColumn", "name": "", "template": "ArenaColumn02"}
+}
