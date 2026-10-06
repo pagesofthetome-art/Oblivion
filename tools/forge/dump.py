@@ -50,6 +50,18 @@ def decode(plugin, rec_sig: str, sub, schema: dict | None) -> list[dict]:
     d = sub.data
     if schema["kind"] == "string":
         return [{"name": schema["name"], "value": tp.zstring(d)}]
+    if schema["kind"] == "array":
+        from forge import records as R
+        dec = R.decode(rec_sig, sub.sig, d)
+        if dec["layout"] == "array":
+            out = []
+            for i, item in enumerate(dec["items"]):
+                for k, v in item.items():
+                    if any(f["name"] == k and f["formid"] for f in schema["fields"]) and isinstance(v, str):
+                        v = _fid(plugin, int(v, 16))
+                    out.append({"name": f"[{i}] {k}", "value": v})
+            return out
+        return []
     if schema["kind"] == "formid" and len(d) >= 4:
         return [{"name": schema["name"], "value": _fid(plugin, struct.unpack_from("<I", d)[0])}]
     out = []

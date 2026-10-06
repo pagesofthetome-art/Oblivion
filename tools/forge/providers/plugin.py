@@ -127,6 +127,22 @@ def _encode_with_refs(rec_sig: str, sub_sig: str, value, resolve, nth: int = 0):
     if sch is None:
         raise PluginError(f"{rec_sig} has no subrecord {sub_sig} (see `forge kb record {rec_sig}`)")
     keys = []
+    if sch["kind"] == "array" and isinstance(value, list):
+        fl = R.fixed_layout(sch)
+        if not fl:
+            raise PluginError(f"{rec_sig}.{sub_sig}: array without a fixed element layout; give it as hex")
+        size = sum(f["size"] for f in fl)
+        data = bytearray()
+        for i, item in enumerate(value):
+            el = item if isinstance(item, dict) else {fl[0]["name"]: item}
+            el = dict(el)
+            for f in fl:
+                v = el.get(f["name"])
+                if f["formid"] and isinstance(v, str) and not re.fullmatch(r"[0-9A-Fa-f]{8}", v):
+                    keys.append((i * size + f["offset"], resolve(v)))
+                    el[f["name"]] = 0
+            data += R.encode(rec_sig, {"sig": sub_sig, "layout": "array", "items": [el]}, nth)
+        return bytes(data), tuple(keys)
     if sch["kind"] == "formid" and isinstance(value, str):
         return b"\0\0\0\0", ((0, resolve(value)),)
     if isinstance(value, dict):
@@ -189,6 +205,10 @@ def build_record(entry: dict, plugin: str, ids: dict, resolve) -> NRec:
             continue
         if not re.fullmatch(r"[A-Z0-9_]{4}", k):
             raise PluginError(f"{sig} {edid}: {k!r} is not a subrecord signature")
+        sch = R.sub_schema(sig, k)
+        if sch is not None and sch["kind"] == "array" and isinstance(v, list):
+            add(k, *_encode_with_refs(sig, k, v, resolve))          # one subrecord holding the list
+            continue
         for one in (v if isinstance(v, list) else [v]):
             add(k, *_encode_with_refs(sig, k, one, resolve))
     if entry.get("effects"):

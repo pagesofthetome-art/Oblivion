@@ -70,13 +70,27 @@ def _field_names(fl):
 
 # --------------------------------------------------------------------------- decode
 def decode(rec_sig: str, sub_sig: str, data: bytes, nth: int = 0) -> dict:
-    """{"sig", "layout": "struct"|"string"|"raw", "fields": {name: value}, "tail": hex}."""
+    """{"sig", "layout": "struct"|"array"|"string"|"raw", "fields"|"items"|"value"|"hex", ["tail"]}."""
     sch = sub_schema(rec_sig, sub_sig, nth)
     if sch and sch["kind"] == "string" and data.endswith(b"\0") and data.count(b"\0") == 1:
         return {"sig": sub_sig, "layout": "string", "value": data[:-1].decode("cp1252")}
     fl = fixed_layout(sch)
+    if fl and sch["kind"] == "array":
+        size = sum(f["size"] for f in fl)       # xEdit arrays repeat one fixed element to the end
+        if size and len(data) % size == 0:
+            items = [_decode_fields(fl, data[i:i + size]) for i in range(0, len(data), size)]
+            return {"sig": sub_sig, "layout": "array", "items": items}
+        return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
     if not fl or sum(f["size"] for f in fl) > len(data):
         return {"sig": sub_sig, "layout": "raw", "hex": data.hex()}
+    used = sum(f["size"] for f in fl)
+    out = {"sig": sub_sig, "layout": "struct", "fields": _decode_fields(fl, data[:used])}
+    if used < len(data):
+        out["tail"] = data[used:].hex()
+    return out
+
+
+def _decode_fields(fl, data: bytes) -> dict:
     fields = {}
     for name, f in zip(_field_names(fl), fl):
         chunk = data[f["offset"]:f["offset"] + f["size"]]
@@ -95,11 +109,7 @@ def decode(rec_sig: str, sub_sig: str, data: bytes, nth: int = 0) -> dict:
         elif f["type"] == "formid":
             v = f"{v:08X}"
         fields[name] = v
-    used = sum(f["size"] for f in fl)
-    out = {"sig": sub_sig, "layout": "struct", "fields": fields}
-    if used < len(data):
-        out["tail"] = data[used:].hex()
-    return out
+    return fields
 
 
 # --------------------------------------------------------------------------- encode
@@ -143,15 +153,21 @@ def encode(rec_sig: str, d: dict, nth: int = 0) -> bytes:
     fl = fixed_layout(sub_schema(rec_sig, sub_sig, nth))
     if not fl:
         raise CodecError(f"{rec_sig}.{sub_sig}: no fixed layout known; give it as hex")
+    if d.get("layout") == "array" or "items" in d:
+        return b"".join(_encode_fields(rec_sig, sub_sig, fl, item if isinstance(item, dict) else
+                                       {_field_names(fl)[0]: item}) for item in d.get("items", []))
+    return _encode_fields(rec_sig, sub_sig, fl, dict(d.get("fields", {}))) + bytes.fromhex(d.get("tail", ""))
+
+
+def _encode_fields(rec_sig: str, sub_sig: str, fl, given: dict) -> bytes:
     names = _field_names(fl)
-    given = dict(d.get("fields", {}))
     unknown = set(given) - set(names) - {n.split("@")[0] for n in names}
     if unknown:
         raise CodecError(f"{rec_sig}.{sub_sig}: unknown field(s) {sorted(unknown)}; fields are {names}")
     out = bytearray()
     for name, f in zip(names, fl):
         out += _value(f, given.get(name))
-    return bytes(out) + bytes.fromhex(d.get("tail", ""))
+    return bytes(out)
 
 
 # --------------------------------------------------------------------------- whole records
@@ -177,7 +193,7 @@ def encode_record(rec_sig: str, decoded: list[dict]) -> list[tuple[str, bytes]]:
 def layout_check(path, sigs: set[str], limit_examples: int = 20) -> dict:
     """Decode and re-encode every subrecord of the given record types; report what round-trips."""
     import tes4_plugin as tp
-    res = {"records": 0, "subrecords": 0, "identical": 0, "struct": 0, "raw": 0, "string": 0,
+    res = {"records": 0, "subrecords": 0, "identical": 0, "struct": 0, "array": 0, "raw": 0, "string": 0,
            "with_tail": 0, "mismatch": 0, "examples": []}
     for p, r in tp.iter_records(path, want=sigs):
         res["records"] += 1

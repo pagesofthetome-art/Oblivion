@@ -46,7 +46,12 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] PC recon (handoff 19): vanilla SPEL/SCIT/SCPT bytes, CS bridge readiness, test-profile facts (shared Plugins.txt/INI/Saves; see plan §4).
 - [x] Fixes from the recon: the xEdit extractor missed the `wbStructSK` layouts (EFIT/SCIT) and is re-extracted with enums/flags; `tools/gamepaths.py` finds the game beside a repo clone (CS bridge token path).
 - [x] 3a in the cloud: `forge/records.py` (schema-driven codec, pad bytes kept), `kind: plugin` builder (`providers/plugin.py`), append-only FormID map, `forge layout-check`, `specs/ak-searing-bolt.yaml` (sha256 `95418054…`). The built SPEL matches vanilla Flash Bolt's layout byte for byte (SPIT/EFIT).
-- [ ] 3a on the PC (handoff 20): `forge layout-check` PASS on every vanilla SPEL, MGEF, ENCH, ALCH, INGR, SGST; the searing bolt builds with the same sha256.
+- [x] 3a on the PC (handoff 20, `70dd7c2`): 82 tests OK (no skips).
+  - ALCH/ENCH/INGR/SGST **PASS** (2,118 records, 14,998 subrecords, all identical).
+  - SPEL+MGEF: all 8,320 subrecords identical, but 33 MGEF `ESCE` left undecoded bytes. Fixed: xEdit arrays (ESCE and 20 other array subrecords) now decode as element lists.
+  - Searing Bolt built with the same sha256 `95418054…`, lint clean; the dump matches Flash Bolt's layout. `forge cs health` OK (token path fixed).
+- [ ] 3a PC rerun (handoff 21): SPEL+MGEF PASS; `layout-check --all` table over every record type in Oblivion.esm, to find the next layout gaps.
+- [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 

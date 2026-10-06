@@ -64,6 +64,19 @@ class CodecTests(unittest.TestCase):
                                                             "Flags": []}})
         self.assertEqual(spit.hex(), FLASH_BOLT_SPIT)
 
+    def test_arrays_decode_every_element(self):
+        # MGEF ESCE is a list of 4-char counter-effect codes (PC handoff 20: RALY = DSPL DEMO)
+        for hx, codes in (("4453504c44454d4f", ["DSPL", "DEMO"]),
+                          ("414248454452484544474845", ["ABHE", "DRHE", "DGHE"])):
+            d = R.decode("MGEF", "ESCE", bytes.fromhex(hx))
+            self.assertEqual(d["layout"], "array")
+            self.assertEqual([i["Counter Effect Code"] for i in d["items"]], codes)
+            self.assertEqual(R.encode("MGEF", d).hex(), hx)
+        # a length that isn't a whole number of elements stays raw (and still round-trips)
+        d = R.decode("MGEF", "ESCE", b"ABC")
+        self.assertEqual(d["layout"], "raw")
+        self.assertEqual(R.encode("MGEF", d), b"ABC")
+
     def test_bad_values_are_clear_errors(self):
         with self.assertRaisesRegex(R.CodecError, "not one of"):
             R.encode("SPEL", {"sig": "SPIT", "fields": {"Level": "Grandmaster"}})
@@ -144,6 +157,16 @@ class PluginBuildTests(unittest.TestCase):
         self.assertEqual(p.global_key(int.from_bytes(scit[:4], "little")), ("oblivion.esm", 0x046EC0))
         self.assertEqual(scit[4:8].hex(), "03000000")        # Illusion, as in vanilla TestPetStay
         self.assertEqual(tp.zstring(subs[6].data), "Script Effect")
+
+    def test_array_of_formids_from_the_spec(self):
+        # NPC_ ENAM (eyes) is an array of FormIDs: references resolve per element
+        rec = {"sig": "NPC_", "edid": "AKEyesTest", "ENAM": ["Oblivion.esm:0027C1", "Oblivion.esm:0027C2"]}
+        res = self.build(self.spec([rec]))
+        (p, r), = list(tp.iter_records(Path(res["plugin"])))
+        enam = r.first("ENAM")
+        self.assertEqual(len(enam), 8)
+        self.assertEqual([p.global_key(int.from_bytes(enam[i:i + 4], "little")) for i in (0, 4)],
+                         [("oblivion.esm", 0x27C1), ("oblivion.esm", 0x27C2)])
 
     def test_errors_are_clear(self):
         code, _, err = forge("build", str(self.spec([{"sig": "SPEL", "edid": "AKX", "SPIT": {"Level": "Godlike"}}])))

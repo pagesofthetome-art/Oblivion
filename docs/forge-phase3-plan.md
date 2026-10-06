@@ -60,7 +60,8 @@ test_plan:
   - The editor files are present (obse_loader, obse_editor_1_2.dll, TESConstructionSet.exe, OBSE\obse.ini). `CSBackups\` doesn't exist yet.
 - **Test profile:** the GOG and Steam copies share **one** `Plugins.txt` (229 lines, the Rebirth+ list), **one** `Oblivion.ini` (`bUseMyGamesDirectory=1`, `SLocalSavePath=Saves\`) and **one** Saves folder (27 saves). There's no GOG-local INI.
   - So 3c can't just "use the GOG copy": activating a test plugin there changes the Rebirth+ setup.
-  - Options for 3c, Yuri to choose:
+  - **Decision (2026-10-06): option A, implemented once in Track E's `tools/playtest`** (branch `claude/serene-maxwell-03d2fh`; swap/restore already verified on the PC). Phase 3c will run `forge playtest specs/ak-searing-bolt.yaml`, with playtest building `kind: plugin` specs through `providers/plugin.py` instead of its stand-in `build_example`. Waiting on Yuri's go-ahead to merge that branch.
+  - Options that were considered:
     - **A. Profile swap tool** (`forge testprofile enter/exit`):
       - Back up `Plugins.txt` and `Oblivion.ini` with hashes, then write a test `Plugins.txt` (vanilla + test plugin) and an INI copy with `SLocalSavePath=TestSaves\`.
       - `exit` restores both and verifies the hashes. It refuses to run while the game runs.

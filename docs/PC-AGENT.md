@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/20-forge-phase3a-pc-handoff.md`](20-forge-phase3a-pc-handoff.md): phase 3a. Layout proof on vanilla SPEL/MGEF/ENCH/ALCH/INGR/SGST, build the Searing Bolt spec, CS bridge path check. Read-only on the game. |
+| **Do now** | [`docs/21-forge-phase3a-rerun-pc-handoff.md`](21-forge-phase3a-rerun-pc-handoff.md): confirm the ESCE/array fix (SPEL+MGEF PASS), run `layout-check --all` on Oblivion.esm, rebuild Searing Bolt. Read-only on the game. |
 | **Branch** | `forge/phase3-plugin` |
-| **Send back** | the `_audit\forge-phase3a\` results (summary lines; see §5 of the handoff) |
+| **Send back** | §5 of the handoff (tests summary, PASS line, the full `--all` table) |
 
 ## How this works
 
@@ -35,4 +35,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 17 | `17-forge-phase2-pc-handoff.md`: knowledge store, run 1 | 18/20; ranking fixed in the cloud |
 | 18 | `18-forge-phase2-pc-run2-handoff.md`: knowledge store, run 2 | 20/20, phase 2 merged (PR #1) |
 | 19 | `19-forge-phase3-pc-recon-handoff.md`: phase 3 recon | done: vanilla bytes, bridge path bug, shared Plugins.txt/INI/Saves |
-| 20 | `20-forge-phase3a-pc-handoff.md`: phase 3a layout proof + Searing Bolt | **pending** |
+| 20 | `20-forge-phase3a-pc-handoff.md`: phase 3a layout proof + Searing Bolt | ALCH/ENCH/INGR/SGST PASS; MGEF ESCE arrays fixed; sha256 matched; 3c decision A |
+| 21 | `21-forge-phase3a-rerun-pc-handoff.md`: array fix + full layout survey | **pending** |

@@ -461,11 +461,37 @@ def cmd_layout_check(argv: list[str]) -> int:
                                              "pass = all identical and no struct leaves undecoded bytes.")
     ap.add_argument("plugin"); ap.add_argument("--data", type=Path)
     ap.add_argument("--sig", action="append"); ap.add_argument("--json", action="store_true")
+    ap.add_argument("--all", action="store_true", help="every record type, with a per-type table")
     a = ap.parse_args(argv)
     path = (a.data / a.plugin) if a.data else Path(a.plugin)
     if not path.is_file():
         print(f"error: not found: {path}", file=sys.stderr)
         return 1
+    if a.all:
+        import tes4_plugin as tp
+        sigs = {r.sig for _, r in tp.iter_records(path)}
+        per = {}
+        for sig in sorted(sigs):
+            r = R.layout_check(path, {sig}, limit_examples=3)
+            per[sig] = r
+        bad = {k: v for k, v in per.items() if v["mismatch"] or v["with_tail"]}
+        out = {"pass": not bad, "types": len(per), "failing_types": sorted(bad),
+               "per_type": {k: {x: v[x] for x in ("records", "subrecords", "identical", "mismatch", "with_tail",
+                                                  "struct", "array", "string", "raw")} for k, v in per.items()},
+               "examples": {k: v["examples"] for k, v in bad.items()}}
+        lines = [f"layout-check {path.name} --all: {'PASS' if not bad else 'FAIL'}  ({len(per)} record types)",
+                 f"  {'type':<5} {'records':>8} {'subs':>8} {'identical':>9} {'mismatch':>8} {'tail':>5} "
+                 f"{'struct':>7} {'array':>6} {'string':>7} {'raw':>7}"]
+        for k, v in per.items():
+            lines.append(f"  {k:<5} {v['records']:>8} {v['subrecords']:>8} {v['identical']:>9} {v['mismatch']:>8} "
+                         f"{v['with_tail']:>5} {v['struct']:>7} {v['array']:>6} {v['string']:>7} {v['raw']:>7}"
+                         + ("  <-- FAIL" if k in bad else ""))
+        for k in sorted(bad):
+            for e in per[k]["examples"][:3]:
+                lines.append(f"  {'MISMATCH' if not e['ok'] else 'TAIL'} {e['record']} {e['sub']} ({e['size']} bytes): "
+                             f"{json.dumps(e['decoded'])[:160]}")
+        _print(out, a.json, "\n".join(lines))
+        return 0 if not bad else 2
     sigs = {x.upper() for x in (a.sig or ["SPEL", "MGEF"])}
     res = R.layout_check(path, sigs)
     ok = res["mismatch"] == 0 and res["with_tail"] == 0 and res["records"] > 0
@@ -473,7 +499,7 @@ def cmd_layout_check(argv: list[str]) -> int:
     lines = [f"layout-check {path.name} {sorted(sigs)}: {'PASS' if ok else 'FAIL'}",
              f"  records {res['records']}  subrecords {res['subrecords']}  identical {res['identical']}  "
              f"mismatch {res['mismatch']}",
-             f"  decoded as struct {res['struct']}, string {res['string']}, raw {res['raw']}  "
+             f"  decoded as struct {res['struct']}, array {res['array']}, string {res['string']}, raw {res['raw']}  "
              f"(structs with leftover bytes: {res['with_tail']})"]
     for e in res["examples"][:10]:
         lines.append(f"  {'MISMATCH' if not e['ok'] else 'TAIL'} {e['record']} {e['sub']} ({e['size']} bytes): "
