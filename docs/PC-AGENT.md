@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | [`docs/26-forge-phase3b-plain-cs-recon-pc-handoff.md`](26-forge-phase3b-plain-cs-recon-pc-handoff.md): CS script-editor recon with the **plain** `TESConstructionSet.exe` (no OBSE, no CSE, no admin), plus read-only facts for the later script-extender decision. CS launch approved by Yuri; nothing is saved. |
+| **Do now** | Optional, not blocking: [`docs/27-forge-cs-recon-take3-pc-handoff.md`](27-forge-cs-recon-take3-pc-handoff.md), the CS script-editor recon (take 3, plain CS, temporary bridge on port 43822). Forge is getting its own script compiler (`docs/forge-script-compiler-plan.md`); the next real PC task (script corpus export) comes once Yuri approves that plan. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | §8 of handoff 26 |
+| **Send back** | §4 of handoff 27 |
 
 ## How this works
 
@@ -41,4 +41,5 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 23 | `23-forge-layout-coverage-pc-handoff.md`: layout coverage (most raw now named) | all bytes identical; CLMT TNAM tail + 3 size variants (fixed); top raw down to 8,181 |
 | 24 | `24-forge-layout-variants-pc-handoff.md`: layout variants | PASS Oblivion.esm (63) + Knights.esp (37); variants fixed; raw now scripts/model hashes/PGRR/PKDT |
 | 25 | `25-forge-phase3b-cs-recon-pc-handoff.md`: CS script-editor recon (CS launch approved) | blocked: `obse_loader -editor` loads CSE v11, which needs admin |
-| 26 | `26-forge-phase3b-plain-cs-recon-pc-handoff.md`: recon with the plain CS + facts for the OBSE decision | **pending** |
+| 26 | `26-forge-phase3b-plain-cs-recon-pc-handoff.md`: recon with the plain CS + facts for the OBSE decision | plain CS starts (no CSE); Script Edit editor disabled until New; bridge couldn't press toolbar buttons; Data unchanged; CSE needs admin, no skip option; bridge task not elevated |
+| 27 | `27-forge-cs-recon-take3-pc-handoff.md`: recon take 3 (toolbar/menu commands, temporary bridge) | optional, **pending** |

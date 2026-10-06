@@ -81,7 +81,10 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
   - `forge dump` now uses the codec (open tails, variants) and names the CTDA operator (160 = Less Than Or Equal To).
 - [x] **3c decision (Yuri): option A**, reusing Track E's verified `tools/playtest` swap/restore (Plugins.txt and Oblivion.ini hashes identical before/after on the PC). One shared implementation. **Blocked:** merging `claude/serene-maxwell-03d2fh` into this branch needs Yuri's go-ahead (the merge was refused by the session's permission check).
 - [x] 3b recon take 1 (handoff 25): blocked. `obse_loader -editor` loads the Construction Set Extender v11, which refuses to run without admin rights. Nothing was saved.
-- [ ] 3b recon take 2 (handoff 26): plain `TESConstructionSet.exe` (no OBSE/CSE, vanilla syntax), plus facts for compiling OBSE syntax later. **Open decision for Yuri:** run elevated (bridge too) vs temporarily disable CSE for forge compiles.
+- [x] 3b recon take 2 (handoff 26): the plain CS starts cleanly (no CSE). Script Edit's text box (#4 RichEdit20A) stays disabled until a New script exists; the bridge couldn't list or press toolbar buttons. Data unchanged. CSE needs admin and has no skip option; the bridge task isn't elevated.
+- [x] Bridge: `toolbar`, `toolbar-press` (WM_COMMAND, no mouse), `menus`, `menu-command`; `FORGE_CS_BRIDGE_PORT` for a temporary repo-run bridge.
+- [ ] **Direction change (Yuri, 2026-10-06):** forge gets its **own script compiler**, validated against every vanilla script; the CS becomes an optional cross-check. Evaluation and plan: `docs/forge-script-compiler-plan.md` (awaiting approval).
+- [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
 - [ ] 3b: `script.compile` through the CS bridge, with a compile cache keyed by source hash.
 - [ ] 3c: fire-bolt variant builds, compiles, lints clean and works in game, in an isolated test profile.
 

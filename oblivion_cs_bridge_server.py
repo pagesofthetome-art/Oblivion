@@ -147,6 +147,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 get_construction_set_window(hwnd, self.server.backend)
                 depth = int(query.get("depth", ["2"])[0])
                 self._json(200, widgets.tree_items(hwnd, max(0, min(depth, 6))))
+            elif parsed.path == "/toolbar":
+                hwnd = int(query["hwnd"][0])
+                get_construction_set_window(hwnd, self.server.backend)
+                self._json(200, widgets.toolbar_buttons(hwnd))
+            elif parsed.path == "/menus":
+                hwnd = int(query["hwnd"][0])
+                get_construction_set_window(hwnd, self.server.backend)
+                self._json(200, widgets.menu_tree(hwnd))
             elif parsed.path == "/wait":
                 title = query["title"][0]
                 timeout = float(query.get("timeout", ["10"])[0])
@@ -211,6 +219,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 idx = body.get("index")
                 self._json(200, widgets.listview_select(
                     hwnd, body.get("text"), None if idx is None else int(idx), bool(body.get("double", False))))
+            elif self.path == "/toolbar/press":
+                idx, cmd = body.get("index"), body.get("command")
+                self._json(200, widgets.toolbar_press(hwnd, None if idx is None else int(idx),
+                                                      None if cmd is None else int(cmd)))
+            elif self.path == "/menu/command":
+                self._json(200, widgets.menu_command(hwnd, int(body["command"])))
             elif self.path == "/tree/select":
                 self._json(200, widgets.tree_select(hwnd, str(body.get("path", ""))))
             else:

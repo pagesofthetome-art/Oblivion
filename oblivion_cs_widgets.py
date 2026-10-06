@@ -192,3 +192,151 @@ def capture_printwindow(hwnd: int):
         gdi32.DeleteObject(bmp)
         gdi32.DeleteDC(mem)
         user32.ReleaseDC(hwnd, hdc)
+
+
+# --------------------------------------------------------------------------- toolbars and menus
+# The CS is 32-bit and the bridge may run 64-bit Python, so toolbar buttons are read with
+# TB_GETBUTTON into memory allocated inside the CS process, parsed with the CS's own TBBUTTON
+# layout (20 bytes on 32-bit, 32 on 64-bit). Buttons are pressed by posting WM_COMMAND with the
+# button's command id to the toolbar's owner: no mouse movement.
+
+TB_BUTTONCOUNT = 0x0418
+TB_GETBUTTON = 0x0417
+WM_COMMAND = 0x0111
+TBSTYLE_SEP = 0x01
+TBSTATE_ENABLED = 0x04
+TBSTATE_CHECKED = 0x01
+TBSTATE_HIDDEN = 0x08
+
+
+def _user32():
+    import ctypes
+    from ctypes import wintypes
+    u = ctypes.WinDLL("user32", use_last_error=True)
+    u.SendMessageW.restype = ctypes.c_ssize_t
+    u.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t]
+    u.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t]
+    u.GetParent.restype = wintypes.HWND
+    u.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    return u
+
+
+def _is_32bit_process(pid: int) -> bool:
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    h = k.OpenProcess(0x1000, False, pid)        # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return True
+    try:
+        wow = wintypes.BOOL()
+        k.IsWow64Process(h, ctypes.byref(wow))
+        return bool(wow.value)                    # 32-bit process on 64-bit Windows
+    finally:
+        k.CloseHandle(h)
+
+
+def toolbar_buttons(hwnd: int) -> dict[str, Any]:
+    import ctypes
+    import struct
+    from ctypes import wintypes
+    u = _user32()
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.VirtualAllocEx.restype = ctypes.c_void_p
+    k.VirtualAllocEx.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD, wintypes.DWORD]
+    k.VirtualFreeEx.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD]
+    k.ReadProcessMemory.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t,
+                                    ctypes.POINTER(ctypes.c_size_t)]
+    pid = wintypes.DWORD()
+    u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    is32 = _is_32bit_process(pid.value)
+    size = 20 if is32 else 32
+    count = int(u.SendMessageW(hwnd, TB_BUTTONCOUNT, 0, 0))
+    proc = k.OpenProcess(0x0008 | 0x0010 | 0x0020 | 0x0400, False, pid.value)   # VM_OPERATION|READ|WRITE|QUERY
+    if not proc:
+        raise OSError(f"OpenProcess failed ({ctypes.get_last_error()})")
+    buttons = []
+    try:
+        remote = k.VirtualAllocEx(proc, None, size, 0x3000, 0x04)               # MEM_COMMIT|RESERVE, RW
+        if not remote:
+            raise OSError(f"VirtualAllocEx failed ({ctypes.get_last_error()})")
+        try:
+            buf = ctypes.create_string_buffer(size)
+            for i in range(min(count, 200)):
+                if not u.SendMessageW(hwnd, TB_GETBUTTON, i, remote):
+                    continue
+                k.ReadProcessMemory(proc, remote, buf, size, None)
+                raw = buf.raw
+                bitmap, cmd = struct.unpack_from("<ii", raw, 0)
+                state, style = raw[8], raw[9]
+                buttons.append({"index": i, "command": cmd, "bitmap": bitmap,
+                                "separator": bool(style & TBSTYLE_SEP),
+                                "enabled": bool(state & TBSTATE_ENABLED), "checked": bool(state & TBSTATE_CHECKED),
+                                "hidden": bool(state & TBSTATE_HIDDEN)})
+        finally:
+            k.VirtualFreeEx(proc, remote, 0, 0x8000)                             # MEM_RELEASE
+    finally:
+        k.CloseHandle(proc)
+    return {"hwnd": hwnd, "count": count, "process_32bit": is32, "buttons": buttons}
+
+
+def toolbar_press(hwnd: int, index: int | None = None, command: int | None = None) -> dict[str, Any]:
+    info = toolbar_buttons(hwnd)
+    if (index is None) == (command is None):
+        raise ValueError("Supply exactly one of index or command")
+    btn = next((b for b in info["buttons"] if (b["index"] == index if index is not None else b["command"] == command)),
+               None)
+    if btn is None:
+        raise LookupError(f"No toolbar button with {'index ' + str(index) if index is not None else 'command ' + str(command)}")
+    if btn["separator"] or btn["hidden"] or not btn["enabled"]:
+        raise RuntimeError(f"Refusing to press a separator, hidden or disabled button: {btn}")
+    u = _user32()
+    owner = u.GetParent(hwnd)
+    if not u.PostMessageW(owner, WM_COMMAND, btn["command"] & 0xFFFF, hwnd):
+        raise OSError("PostMessage WM_COMMAND failed")
+    return {"ok": True, "action": "toolbar-press", "button": btn, "owner": owner}
+
+
+def menu_tree(hwnd: int, max_items: int = 400) -> dict[str, Any]:
+    """The window's menu bar (GetMenu), as a tree of {text, id, enabled, items}."""
+    import ctypes
+    u = ctypes.WinDLL("user32", use_last_error=True)
+    u.GetMenu.restype = ctypes.c_void_p
+    u.GetSubMenu.restype = ctypes.c_void_p
+    u.GetSubMenu.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    u.GetMenuItemCount.argtypes = [ctypes.c_void_p]
+    u.GetMenuItemID.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    u.GetMenuItemID.restype = ctypes.c_uint
+    u.GetMenuStringW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_wchar_p, ctypes.c_int, ctypes.c_uint]
+    u.GetMenuState.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint]
+    u.GetMenuState.restype = ctypes.c_uint
+    budget = [max_items]
+
+    def walk(h, depth):
+        out = []
+        n = u.GetMenuItemCount(h)
+        for i in range(max(0, n)):
+            if budget[0] <= 0:
+                break
+            budget[0] -= 1
+            buf = ctypes.create_unicode_buffer(256)
+            u.GetMenuStringW(h, i, buf, 256, 0x400)                 # MF_BYPOSITION
+            state = u.GetMenuState(h, i, 0x400)
+            sub = u.GetSubMenu(h, i)
+            item = {"text": buf.value, "id": None if sub else u.GetMenuItemID(h, i),
+                    "enabled": not (state & 0x3), "separator": bool(state & 0x800)}
+            if sub and depth < 4:
+                item["items"] = walk(sub, depth + 1)
+            out.append(item)
+        return out
+
+    m = u.GetMenu(hwnd)
+    return {"hwnd": hwnd, "has_menu": bool(m), "items": walk(m, 0) if m else []}
+
+
+def menu_command(hwnd: int, command: int) -> dict[str, Any]:
+    """Post WM_COMMAND for a menu item id found with menu_tree (no mouse, no focus needed)."""
+    u = _user32()
+    if not u.PostMessageW(hwnd, WM_COMMAND, command & 0xFFFF, 0):
+        raise OSError("PostMessage WM_COMMAND failed")
+    return {"ok": True, "action": "menu-command", "command": command}

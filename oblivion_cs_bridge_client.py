@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -15,7 +16,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 from gamepaths import game_dir  # noqa: E402  (game folder may sit beside a repo clone)
 
 TOKEN_FILE = game_dir() / ".cs_bridge_token"
-BASE = "http://127.0.0.1:43821"
+# FORGE_CS_BRIDGE_PORT lets a second, temporary bridge (e.g. started from a repo clone) be used
+PORT = int(os.environ.get("FORGE_CS_BRIDGE_PORT", "43821"))
+BASE = f"http://127.0.0.1:{PORT}"
 
 
 def request(path: str, body: dict | None = None):
@@ -23,7 +26,7 @@ def request(path: str, body: dict | None = None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = Request(BASE + path, data=data, method="POST" if data is not None else "GET")
     req.add_header("Authorization", "Bearer " + token)
-    req.add_header("Host", "127.0.0.1:43821")
+    req.add_header("Host", f"127.0.0.1:{PORT}")
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
@@ -77,6 +80,18 @@ def main() -> int:
     p_ts = sub.add_parser("tree-select", help=r"Select a tree node by path, e.g. \Items\Weapon")
     p_ts.add_argument("hwnd", type=int)
     p_ts.add_argument("path")
+    p_tb = sub.add_parser("toolbar", help="List a ToolbarWindow32's buttons (index, command id, state)")
+    p_tb.add_argument("hwnd", type=int)
+    p_tbp = sub.add_parser("toolbar-press", help="Press a toolbar button via WM_COMMAND (no mouse)")
+    p_tbp.add_argument("hwnd", type=int)
+    g_tbp = p_tbp.add_mutually_exclusive_group(required=True)
+    g_tbp.add_argument("--index", type=int)
+    g_tbp.add_argument("--command", type=int)
+    p_mn = sub.add_parser("menus", help="List a window's menu bar as a tree with command ids")
+    p_mn.add_argument("hwnd", type=int)
+    p_mc = sub.add_parser("menu-command", help="Post a menu command id (from `menus`) to a window")
+    p_mc.add_argument("hwnd", type=int)
+    p_mc.add_argument("command", type=int)
     p_wait = sub.add_parser("wait", help="Wait for a CS window whose title contains TEXT")
     p_wait.add_argument("title")
     p_wait.add_argument("--timeout", type=float, default=10)
@@ -127,6 +142,16 @@ def main() -> int:
             path, body = f"/tree?hwnd={args.hwnd}&depth={args.depth}", None
         elif args.command == "tree-select":
             path, body = "/tree/select", {"hwnd": args.hwnd, "path": args.path}
+        elif args.command == "toolbar":
+            path, body = f"/toolbar?hwnd={args.hwnd}", None
+        elif args.command == "toolbar-press":
+            body = {"hwnd": args.hwnd}
+            body.update({"index": args.index} if args.index is not None else {"command": args.command})
+            path = "/toolbar/press"
+        elif args.command == "menus":
+            path, body = f"/menus?hwnd={args.hwnd}", None
+        elif args.command == "menu-command":
+            path, body = "/menu/command", {"hwnd": args.hwnd, "command": args.command}
         elif args.command == "wait":
             from urllib.parse import quote
             path = f"/wait?title={quote(args.title)}&timeout={args.timeout}&exact={1 if args.exact else 0}"
