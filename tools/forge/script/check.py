@@ -118,7 +118,7 @@ def check_row(row: dict, comp: Compiler, table: cmds.CommandTable, names) -> dic
     try:
         c = comp.compile(row["sctx"], row["schr"].get("type", 0), fixed_vars, fixed_refs)
     except CompileError as e:
-        res.update(ok=False, kind="compile error: " + re.sub(r"'[^']*'", "'…'", e.msg), detail=str(e))
+        res.update(ok=False, kind="compile error: " + re.sub(r"'[^']*'", "<name>", re.sub(r"\('[^)]*\)", "<ref>", e.msg)), detail=str(e))
         return res
     except Exception as e:      # a compiler bug: report, never crash the survey
         res.update(ok=False, kind=f"crash: {type(e).__name__}", detail=str(e))
@@ -129,7 +129,9 @@ def check_row(row: dict, comp: Compiler, table: cmds.CommandTable, names) -> dic
         dec_c = bc.Decompiler(table, row["vars"], row["refs"], names).decode(c.scda)
         so, sc = stmt_at(dec_o, off), stmt_at(dec_c, off)
         op = so.split(" ", 2)[1] if " " in so else so
-        res.update(ok=False, kind=f"bytes differ in {op}", detail=f"@{off:04X} vanilla [{so}] forge [{sc}]")
+        res.update(ok=False, kind=f"bytes differ in {op}",
+                   detail=f"@{off:04X} vanilla [{so}] forge [{sc}] bytes vanilla {orig[off:off + 8].hex(' ')} "
+                          f"forge {c.scda[off:off + 8].hex(' ')}")
         return res
     res["ok"] = True
     # the ordering rule, unpinned

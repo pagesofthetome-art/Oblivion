@@ -90,7 +90,7 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] **S1 gate: 100%** of the vanilla corpus decodes with no leftover bytes (cloud, on the uploaded corpus). Expressions are postfix; jump fields, Z refs, `~`, Message/MessageBox layouts and the SCHR high-water mark are all confirmed. See plan §3c.
 - [x] Confirmation of the 100% on the PC (handoff 29): corpus, Oblivion.esm and Knights.esp all decode 100%. S1 signed off.
 - [x] **S2–S6: the compiler.** `forge script-check` gives 99.86% byte-identical SCDA on the vanilla corpus (10,705/10,720); the other 15 are stale data or rare aliases (plan §3d). The reference-list ordering rule matches every identical script.
-- [ ] Confirmation of `script-check` on the PC (handoff 30).
+- [x] Confirmation of `script-check` on the PC (handoff 30): corpus 99.86%, Oblivion.esm read directly 99.95%, same failures. S6 signed off.
 - [ ] `scripts:` in `kind: plugin` specs: write SCPT records (and attach them) with forge's compiler.
 - [ ] S7: OBSE syntax (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
