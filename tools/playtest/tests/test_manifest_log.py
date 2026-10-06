@@ -57,7 +57,8 @@ class ManifestTests(unittest.TestCase):
         self.assertIn("0300081A.GetAV Health", first)
         self.assertIn("0300081B.cast 02000800 0300081A", first)
         self.assertIn("player.additem 0000000F 100", second)
-        self.assertEqual(second[-2:], ['printc "FORGE|END|abcd1234"', "scof 0"])
+        self.assertEqual(second[-3:-1], ['printc "FORGE|END|abcd1234"', "scof 0"])
+        self.assertTrue(second[-1].startswith('message "Forge: checks done'), "tells Yuri to quit when ready")
         self.assertEqual([c["command"] for c in m["chunks"]], ["bat fpt1", "bat fpt2"])
 
     def test_exterior_location_moves_to_the_marker_and_probes_the_worldspace(self):

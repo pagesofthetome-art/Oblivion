@@ -2,7 +2,7 @@
 
 Each track updates its own section when it finishes (see the TES4Forge roadmap).
 
-## Track E: playtest (2026-10-06, run 4 prepared)
+## Track E: playtest (2026-10-06, run 5 prepared)
 
 Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge playtest | test | preview`.
 
@@ -35,4 +35,18 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - a screenshot after every typed command;
   - Continue directly when a save exists;
   - 77 tests.
-- **Waiting on:** PC run 4 (`tools/playtest/HANDOFF-local-claude.md`).
+- **PC run 4:**
+  - Fixed: the whole screen is visible, the controller works, ICArena loads.
+  - Still wrong:
+    - make-save gave up on its second console command;
+    - the restore hit Access denied while the game was exiting;
+    - old saves were deleted too early.
+- **Yuri's rule:** forge never closes the game.
+- **Run 5:**
+  - no auto-quit anywhere: forge beeps, Yuri quits, restore runs after the process exits (writes retried);
+  - a freeze is only reported (killing it is opt-in);
+  - make-save uses one batch (probe + save + note) and replaces the old save only once the new one is verified;
+  - no typing in the main menu;
+  - acceptance stops if make-save fails;
+  - 81 tests.
+- **Waiting on:** PC run 5 (`tools/playtest/HANDOFF-local-claude.md`).

@@ -8,8 +8,8 @@ an optional layout check only. Yuri's Rebirth+ setup (Steam copy, Vortex) is nev
 
 ```
 forge playtest tools\playtest\examples\example-firebolt.yaml          boot, check, keep playing
-forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open|<InteriorEditorID>|world:<World>|marker:<Map marker>] [--quit] [--bright] [--dry-run]
-forge playtest make-save                     one time: New Game with the pad -> test save (boot plan B)
+forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open|<InteriorEditorID>|world:<World>|marker:<Map marker>] [--bright] [--dry-run] [--kill-on-freeze]
+forge playtest make-save                     one time: New Game with the pad -> test save (Continue loads it)
 forge playtest find <text>                   search vanilla interiors and map markers for --cell
 forge playtest restore | status | cells      fix-up; hashes; test actors + chosen locations
 forge test [RUN_DIR] [--json]                report of the last run
@@ -73,24 +73,34 @@ The test ini is your real Oblivion.ini with these changes:
   own file is restored afterwards. The controller companion starts in NorthernUI mode;
 - `--bright` adds `bFullBrightLighting=1` for dark places.
 
+**Yuri's rule: forge never closes the game.** Forge does its steps, then beeps and shows
+"done, quit when ready" in the console window and in game. You play on and quit with the pad. Forge
+waits for the Oblivion process to exit before it restores anything (run 4: restoring while the game
+was still exiting gave Access denied; writes are now also retried for ~10 s). If forge itself dies,
+the guardian restores after the game exits.
+
 The boot itself:
-1. `obse_loader.exe` starts the game.
-2. **With the test save** (the normal case): forge **beeps**, and you press Cross on **CONTINUE**.
-   Then the boot command (`coc <Interior>` / `cow <World> x y`) runs from the in-game console. Forge
-   never presses keys in the main menu (run 2: Down+Enter opened a stray message box). If the save
-   brings up a character-creation menu, the run stops and asks for a new `make-save`.
-3. **Without it**, plan A: open the console at the main menu and type the boot command. This has never
-   started a game on the PC so far; it then tells you to run `forge playtest make-save`.
-4. **`forge playtest make-save`** (once): New Game with the pad. When the character screen opens,
-   change nothing, leave the name box alone, choose DONE and confirm. Forge waits until that screen
-   has closed, then runs `coc` to the arena. It checks in the log that you really are there, saves
-   `Saves\ForgePlaytest\ForgePlaytestBase.ess` and quits. Autosaves in that folder (and only there)
-   are removed so that Continue always loads it.
+1. A test save must exist: without one, forge stops before launching and says to run
+   `forge playtest make-save`.
+2. `obse_loader.exe` starts the game. At the main menu forge **beeps**, and you press Cross on
+   **CONTINUE**. Forge never types into the main menu: that never started a game on the PC and
+   opened other menus (run 2: a message box; run 4: the Load menu).
+3. After the load, the boot command (`coc <Interior>` / `cow <World> x y`) runs from the in-game
+   console. Opening the console is tried up to three times, and typing happens only once the console
+   is confirmed open. If the save brings up a character-creation menu, the run stops and asks for a
+   new `make-save`.
+4. **`forge playtest make-save`** (once): New Game with the pad, type any name, choose DONE and
+   confirm (DONE needs a name). Forge waits until the character screen has closed, `coc`s to the
+   arena, then runs one batch that logs where you are and saves as `ForgePlaytestNew`. It beeps, and
+   you quit. Only if the log confirms you were in the arena does the new save replace
+   `Saves\ForgePlaytest\ForgePlaytestBase.ess`. Otherwise the old save is left exactly as it was. Then
+   autosaves in that folder (and only there) are removed so that Continue always loads it.
 5. After the load, `bat fpt1` (each batch exists as `fptN.txt` and `fptN`, so `bat` finds it either
    way) puts you on a **door arrival spot**. It then brings the test actors next to you, checks where
    you are (`GetInCell` / `GetInWorldspace`), and runs the steps. Logging is turned on with both
-   `con_SCOF` and `scof`.
-6. Boot time is measured from the command to "loaded, player in control". The target is 30 s.
+   `con_SCOF` and `scof`. The last batch shows the "quit when ready" message in game.
+6. Boot time is measured from the command to "loaded, player in control". The target is 30 s, once
+   you press Continue at the beep.
 
 Every run folder (`forge-builds\playtest\runs\<time>\`) also keeps:
 - `boot-trace.jsonl`: menu stack, menu mode, focus and window, twice a second;
@@ -164,8 +174,9 @@ PersuasionMenu. It is dismissed automatically with Down, Enter.
 ## Safety
 
 - The freeze probe (`Controller\oblivion_freeze.py`) and Windows' "not responding" state are
-  watched all the time. A confirmed freeze lasting `--hang-seconds` (default 20) closes the test
-  game, and the run is reported as `FROZE`, with `Controller\freeze_report.txt`.
+  watched all the time. A confirmed freeze lasting `--hang-seconds` (default 20) is reported as
+  `FROZE`, with a beep and `Controller\freeze_report.txt`. Forge does not close the game (close it
+  yourself); `--kill-on-freeze` makes forge close it.
 - Nothing happens while another Oblivion or the CS is open. Keys go only to the test game's own
   window (checked by process id).
 
@@ -194,7 +205,8 @@ The suite covers:
 - the preview page;
 - the CLI;
 - an end-to-end run against a fake game that executes the batch files: pass, the street exterior,
-  plan A failing with and without a save, `make-save`, fail, freeze, refusal, dry run, forge
-  crash, masters taken from the play copy.
+  no save, `make-save` (good and bad), a save made before character creation, the DPI flag,
+  fail, freeze (reported, or killed with the opt-in), refusal, dry run, forge interrupted (before and
+  during the game), masters taken from the play copy. In every run the player quits, never forge.
 
 Every fixture is invented; there is no Bethesda data.

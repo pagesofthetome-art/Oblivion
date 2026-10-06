@@ -260,7 +260,8 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
             continue
         st["console"] = _line(st, forms)
         chunks[-1]["lines"] += [f'printc "{marker("STEP", st["n"], st["do"])}"', st["console"]]
-    chunks[-1]["lines"] += [f'printc "{marker("END", run_id)}"', "scof 0"]
+    chunks[-1]["lines"] += [f'printc "{marker("END", run_id)}"', "scof 0",
+                            'message "Forge: checks done. Play on, quit the game when you are ready."']
     for i, c in enumerate(chunks, 1):
         c["file"] = f"{BATCH_PREFIX}{i}.txt"
         c["command"] = f"bat {BATCH_PREFIX}{i}"

@@ -1,6 +1,6 @@
 """The playtest command group for forge: playtest, test, preview.
 
-    forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open] [--manifest F] [--quit] [--dry-run]
+    forge playtest <spec.yaml | Mod.esp> [--cell arena|street|open] [--manifest F] [--dry-run]
     forge playtest restore | status | cells | make-save | find <text>
     forge test [RUN_DIR] [--log forge_test.log --manifest playtest_manifest.json] [--json]
     forge preview <spec.yaml | Mod.esp | cells> [--cell NAME] [--out page.html] [--open]
@@ -27,7 +27,8 @@ def register(sub) -> None:
     p.add_argument("--cell", help="arena | street | open | <vanilla InteriorEditorID> | marker:<Map marker> | "
                                   "cow:<World>:<x>:<y> (default: the spec's test_plan.cell, else arena)")
     p.add_argument("--manifest", help="test plan file (YAML/JSON) instead of the spec's test_plan")
-    p.add_argument("--quit", action="store_true", help="quit the game when the checks are done")
+    p.add_argument("--kill-on-freeze", action="store_true",
+                   help="close a frozen test game after --hang-seconds (default: never close the game)")
     p.add_argument("--dry-run", action="store_true", help="build, swap and stage the profile, then restore; no launch")
     p.add_argument("--no-companion", action="store_true", help="do not start Controller\\oblivion_controller.py")
     p.add_argument("--bright", action="store_true", help="full-bright lighting in the test game (dark places)")
@@ -99,7 +100,7 @@ def cmd_playtest(a) -> int:
             print(f"  locations: {e}")
         return 0
     opts = runner.Options(cell=a.cell, manifest=Path(a.manifest) if a.manifest else None, dry_run=a.dry_run,
-                          quit_when_done=a.quit, boot_timeout=a.boot_timeout, hang_seconds=a.hang_seconds,
+                          kill_on_freeze=a.kill_on_freeze, boot_timeout=a.boot_timeout, hang_seconds=a.hang_seconds,
                           companion=not a.no_companion, bright=a.bright,
                           log=(lambda s: None) if a.json else print)
     try:

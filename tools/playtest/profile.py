@@ -79,13 +79,26 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _fsync_write(path: Path, data: bytes) -> None:
+def _fsync_write(path: Path, data: bytes, tries: int = 20, wait: float = 0.5) -> None:
+    """Write via a temp file + atomic replace. A file another program still has open (Oblivion
+    holding Plugins.txt while it exits: run 4's Access denied) is retried for ~10 s."""
     tmp = path.with_name(path.name + ".forge-tmp")
     with open(tmp, "wb") as fh:
         fh.write(data)
         fh.flush()
         os.fsync(fh.fileno())
-    os.replace(tmp, path)
+    for i in range(tries):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if i == tries - 1:
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+                raise
+            time.sleep(wait)
 
 
 # ---------------------------------------------------------------- Windows compatibility layers

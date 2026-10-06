@@ -30,6 +30,8 @@ class FakeGame:
         self.cell = None
         self.world = None
         self.loaded_save = False
+        self.messages: list[str] = []
+        self.quit_at = None
         self.menu_since = None
         self.t_load = None
         self.alive = True
@@ -57,8 +59,10 @@ class FakeGame:
         if (self.state == "chargen" and not (self.b["save_before_chargen"] and self.loaded_save)
                 and now - self.chargen_since >= self.b["chargen_seconds"]):
             self.state = "game"                                                      # Yuri chose DONE
-        if self.b["freeze_at"] is not None and now - self.started >= self.b["freeze_at"]:
+        if self.b["freeze_at"] is not None and now - self.started >= self.b["freeze_at"] and self.state != "frozen":
             self.state = "frozen"
+        if self.quit_at is not None and now >= self.quit_at:
+            self.alive = False                                                       # Yuri quit
 
     def ui(self) -> dict:
         menus = {"starting": [], "menu": [plat.MENU_MAIN], "loading": [plat.MENU_LOADING], "game": [1004],
@@ -113,6 +117,9 @@ class FakeGame:
             sd = Path(self.b["save_dir"])
             sd.mkdir(parents=True, exist_ok=True)
             (sd / (cmd.split(None, 1)[1] + ".ess")).write_bytes(b"save")
+            return
+        if low.startswith("message "):
+            self.messages.append(cmd.split(None, 1)[1].strip('"'))
             return
         if low == "qqq":
             self.alive = False
@@ -203,6 +210,15 @@ class FakePlatform(plat.Platform):
         if self.game and pid == self.GAME_PID:
             self.game.alive = False
         return True
+
+    beeps = 0
+
+    def beep(self):
+        """Yuri hears it: at the main menu he presses Continue (continue_after); in game it means
+        'forge is done', so he quits a few seconds later (also a frozen game, via Task Manager)."""
+        self.beeps += 1
+        if self.game and self.game.state not in ("menu", "starting", "loading"):
+            self.game.quit_at = self.t + 5.0
 
     def spawn_detached(self, argv):
         self.spawned.append(argv)
