@@ -91,7 +91,8 @@ Source: `15-forge-prompt.md`. A phase ships only when its tests pass. Tick a box
 - [x] Confirmation of the 100% on the PC (handoff 29): corpus, Oblivion.esm and Knights.esp all decode 100%. S1 signed off.
 - [x] **S2–S6: the compiler.** `forge script-check` gives 99.86% byte-identical SCDA on the vanilla corpus (10,705/10,720); the other 15 are stale data or rare aliases (plan §3d). The reference-list ordering rule matches every identical script.
 - [x] Confirmation of `script-check` on the PC (handoff 30): corpus 99.86%, Oblivion.esm read directly 99.95%, same failures. S6 signed off.
-- [ ] `scripts:` in `kind: plugin` specs: write SCPT records (and attach them) with forge's compiler.
+- [x] `scripts:` in `kind: plugin` specs: forge compiles them into SCPT records and attaches them by EditorID (`specs/ak-ember-ward.yaml`, cloud sha256 `9de0ace3…`).
+- [ ] PC build of `ak-ember-ward` matches that sha256 (handoff 31).
 - [ ] S7: OBSE syntax (validated on the PC only).
 - [ ] Optional: CS recon take 3 (handoff 27), the cross-check oracle.
 - [ ] ~~3b: `script.compile` through the CS bridge~~ replaced by forge's own compiler (above); the CS is an optional cross-check only.

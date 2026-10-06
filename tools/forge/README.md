@@ -54,6 +54,25 @@ Forge is getting its own script compiler; the plan is in `docs/forge-script-comp
   - `--show EDID --source` prints one script's listing next to its source.
 - **`forge script-check <plugin|corpus>`** compiles every script's source with forge's own compiler and compares the bytes. Vanilla: 99.86% identical; the rest are explained in `docs/forge-script-compiler-plan.md` §3d. Unknown names, and anything vanilla never exercised, are compile errors, not guesses.
 
+### Scripts in a spec (`kind: plugin`)
+
+```yaml
+scripts:
+  - edid: AKEmberWardScript
+    type: magic                 # object (default) | quest | magic
+    source: |
+      scn AKEmberWardScript
+      begin ScriptEffectStart
+        Message "Ember Ward: warmth settles into your limbs."
+      end
+    # or  file: scripts/AKEmberWardScript.txt
+```
+- `forge build` compiles each script with forge's compiler into a SCPT record (SCHR, SCDA, SCTX, variables, references). There is no Construction Set step.
+- Records attach a script by EditorID: `SCRI: …`, or `script:` in a script effect.
+- Names in the source resolve to the spec's own records and scripts, then to vanilla through the KB.
+- Compiling needs the exe's command table: `vanilla_commands.jsonl` from `forge kb export-commands`, or a spec `commands:` path.
+- Example: `specs/ak-ember-ward.yaml`.
+
 ## Knowledge store (`forge kb`, phase 2)
 
 `forge-kb.sqlite` answers a modding question in one call instead of a guess. Every row carries `source` and `confidence` (`CONFIRMED_MULTI_SOURCE`, `HIGH_CONFIDENCE`, `HYPOTHESIS`). Text output labels a HYPOTHESIS as unverified.

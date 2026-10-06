@@ -8,9 +8,9 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 
 | | |
 |---|---|
-| **Do now** | Nothing required. Optional: handoff 27 (CS recon take 3). The next task comes with `scripts:` in specs, or with S7 (OBSE, PC-only validation). |
+| **Do now** | [`docs/31-forge-ember-ward-pc-handoff.md`](31-forge-ember-ward-pc-handoff.md): build `specs/ak-ember-ward.yaml`, the first spec with a script forge compiles itself; the sha256 must match the cloud's. No game/CS, nothing deployed. Handoff 27 stays optional. |
 | **Branch** | `forge/phase3-plugin` (check it out yourself) |
-| **Send back** | - |
+| **Send back** | §3 of handoff 31 |
 
 ## How this works
 
@@ -46,3 +46,4 @@ Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-
 | 28 | `28-forge-script-corpus-pc-handoff.md`: script corpus export + decompiler survey (S0+S1) | done: 26,624 scripts, 2.3 MB corpus uploaded; first survey 89.6%, raised to 100% in the cloud |
 | 29 | `29-forge-decompiler-confirm-pc-handoff.md`: confirm the 100% decode on the PC | done: corpus, Oblivion.esm, Knights.esp all 100%; S1 signed off |
 | 30 | `30-forge-script-check-pc-handoff.md`: the compiler against vanilla (`script-check`) | done: corpus 10,705/10,720 (99.86%), Oblivion.esm 9,641/9,646 (99.95%); S6 signed off |
+| 31 | `31-forge-ember-ward-pc-handoff.md`: first spec with a compiled script (`ak-ember-ward`) | **pending** |

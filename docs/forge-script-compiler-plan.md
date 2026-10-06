@@ -1,6 +1,6 @@
 # TES4Forge's own script compiler: evaluation and plan
 
-**Status:** approved by Yuri (2026-10-06). **S0 and S1 are done:** the corpus was exported on the PC (handoff 28; 26,624 scripts, 10,720 with bytecode), and the decompiler decodes **100%** of it with no leftover bytes. The format is in `tools/forge/script/bytecode.py`. **S2–S6 are done too:** `forge script-check` compiles every vanilla script's source and gets **99.86% byte-identical SCDA** (10,705 of 10,720). The 15 others are explained in §3d. Next: `scripts:` in `kind: plugin` specs.
+**Status:** approved by Yuri (2026-10-06). **S0 and S1 are done:** the corpus was exported on the PC (handoff 28; 26,624 scripts, 10,720 with bytecode), and the decompiler decodes **100%** of it with no leftover bytes. The format is in `tools/forge/script/bytecode.py`. **S2–S6 are done too:** `forge script-check` compiles every vanilla script's source and gets **99.86% byte-identical SCDA** (10,705 of 10,720). The 15 others are explained in §3d. **`scripts:` in `kind: plugin` specs works** (`specs/ak-ember-ward.yaml`). Next: the PC build check (handoff 31), then S7 (OBSE).
 **Decisions (Yuri, 2026-10-06):**
 1. The plan is approved. The PC exports the vanilla script corpus (S0), and Yuri uploads it to the cloud session for local iteration. It is never committed.
 2. The research mods' OBSE scripts may be used for validation (S7), **on the PC only**: pass rates and failure counts may come back to the cloud; script text and bytes stay on the PC.

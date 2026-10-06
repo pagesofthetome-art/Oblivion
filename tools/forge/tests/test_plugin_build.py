@@ -9,6 +9,7 @@ from __future__ import annotations
 import io
 import json
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -247,10 +248,58 @@ class PluginBuildTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("can't resolve", err)
 
-    def test_scripts_wait_for_phase_3b(self):
-        code, out, _ = forge("build", str(self.spec([self.FLASH], scripts=[{"name": "X"}])))
+    def commands_file(self) -> Path:
+        from forge.tests.test_script_decode import COMMANDS
+        p = self.tmp / "commands.jsonl"
+        p.write_text("\n".join(json.dumps(c) for c in COMMANDS), encoding="utf-8")
+        return p
+
+    BURN = {"edid": "AKBurnScript", "type": "magic", "source":
+            "scn AKBurnScript\nshort hits\nbegin FxGameMode\n  set hits to hits + 1\n"
+            "  if hits > 2\n    FxSay \"burning\" hits\n  endif\nend\n"}
+
+    def test_scripts_compile_into_scpt_records(self):
+        rec = {"sig": "SPEL", "edid": "AKBurn", "FULL": "Burn",
+               "SPIT": {"Type": "Spell", "Cost": 20, "Level": "Novice", "Flags": []},
+               "effects": [{"effect": "SEFF", "range": "Self",
+                            "script": {"script": "AKBurnScript", "school": "Destruction", "name": "Burn"}}]}
+        spec = self.spec([rec], scripts=[self.BURN], commands=str(self.commands_file()))
+        res = self.build(spec)
+        self.assertEqual(res["failures"], [])
+        recs = list(tp.iter_records(Path(res["plugin"])))
+        self.assertEqual([r.sig for _, r in recs], ["SCPT", "SPEL"])   # SCPT group first, as in vanilla
+        p, scpt = recs[0]
+        subs = scpt.subrecords()
+        self.assertEqual([s.sig for s in subs], ["EDID", "SCHR", "SCDA", "SCTX", "SLSD", "SCVR"])
+        unused, refs, size, nvars, typ = struct.unpack("<4sIIII", subs[1].data)
+        self.assertEqual((refs, size, nvars, typ), (0, len(subs[2].data), 1, 0x100))
+        self.assertTrue(subs[3].data.startswith(b"scn AKBurnScript\r\nshort hits\r\n"))
+        self.assertEqual(subs[4].data[16], 1)                      # short -> integer flag
+        # the decompiler reads the compiled bytes back
+        from forge.script import bytecode as bc, commands as cmds
+        dec = bc.Decompiler(cmds.load(self.commands_file()), [{"index": 1, "name": "hits"}]).decode(subs[2].data)
+        self.assertTrue(dec.ok, dec.issues)
+        self.assertEqual([s.text for s in dec.stmts][:4],
+                         ["ScriptName", "Begin FxGameMode", "set hits to hits 1 +", "if hits 2 >"])
+        # the spell's script effect points at the new SCPT
+        _, spel = recs[1]
+        scit = [s for s in spel.subrecords() if s.sig == "SCIT"][0].data
+        self.assertEqual(p.global_key(int.from_bytes(scit[:4], "little")), ("aktest.esp", scpt.form_id & 0xFFFFFF))
+        # deterministic
+        self.assertEqual(Path(self.build(spec)["plugin"]).read_bytes(), Path(res["plugin"]).read_bytes())
+
+    def test_script_errors_are_clear(self):
+        bad = dict(self.BURN, source="scn AKBurnScript\nbegin FxGameMode\n  FxGive NoSuchThing\nend")
+        code, _, err = forge("build", str(self.spec([], scripts=[bad], commands=str(self.commands_file()))))
         self.assertEqual(code, 1)
-        self.assertIn("phase 3b", out)
+        self.assertIn("script AKBurnScript: line 3: unknown name", err)
+        code, _, err = forge("build", str(self.spec([], scripts=[self.BURN],
+                                                    commands=str(self.tmp / "missing.jsonl"))))
+        self.assertEqual(code, 1)
+        self.assertIn("export-commands", err)
+        wrong = dict(self.BURN, source=self.BURN["source"].replace("scn AKBurnScript", "scn Other"))
+        code, _, err = forge("build", str(self.spec([], scripts=[wrong], commands=str(self.commands_file()))))
+        self.assertIn("names must match", err)
 
     def test_layout_check_on_built_plugin(self):
         res = self.build(self.spec([self.FLASH]))

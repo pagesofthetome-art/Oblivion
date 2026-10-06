@@ -1,0 +1,77 @@
+# TES4Forge phase 3b acceptance spec: a spell whose effect is a script forge compiles itself
+# (no Construction Set). Builds on the PC with the exe's command table (vanilla_commands.jsonl).
+#   forge spec check specs\ak-ember-ward.yaml
+#   forge build specs\ak-ember-ward.yaml
+forge_spec: 1
+name: ak-ember-ward
+kind: plugin
+intent: >
+  Ember Ward: a Novice Restoration lesser power. For 30 seconds a script counts "ember pulses",
+  one every 3 seconds, and reports them on screen; it changes nothing else. Tests forge's own
+  script compiler end to end.
+
+vars:
+  GOG_DATA: "C:/Users/Shadow/Desktop/Games/Oblivion/Data"
+
+output:
+  plugin: AKEmberWard.esp
+  version: "1.0"
+  install_notes:
+    - "Test profile only until phase 3c signs it off."
+
+ids: ak-ember-ward.ids.json          # EditorID -> FormID; append-only, commit it
+
+inputs: []
+dependencies:
+  masters: [Oblivion.esm]
+  runtime: []
+compatibility_targets: [Oblivion Rebirth+ (Steam, Vortex)]
+
+scripts:
+  - edid: AKEmberWardScript
+    type: magic
+    source: |
+      scn AKEmberWardScript
+
+      float timer
+      short pulses
+
+      begin ScriptEffectStart
+        Message "Ember Ward: warmth settles into your limbs."
+      end
+
+      begin ScriptEffectUpdate
+        set timer to timer + GetSecondsPassed
+        if timer >= 3
+          set pulses to pulses + 1
+          Message "Ember pulse %.0f", pulses
+          set timer to 0
+        endif
+      end
+
+      begin ScriptEffectFinish
+        Message "The ember ward fades after %.0f pulses.", pulses
+      end
+
+records:
+  - sig: SPEL
+    edid: AKEmberWard
+    FULL: Ember Ward
+    SPIT: {Type: Lesser Power, Cost: 0, Level: Novice, Flags: []}
+    effects:
+      - effect: SEFF
+        range: Self
+        duration: 30
+        script: {script: AKEmberWardScript, school: Restoration, name: Ember Ward}
+
+lint:
+  data: "${GOG_DATA}"
+
+expect:
+  # Built in the cloud with the PC's exported command table (2026-10-06); the PC build must match.
+  sha256: 9de0ace3855499f56bea3db1e5bafb490240259e66685c8cfcf7d39d1688a63b
+
+test_plan:
+  - "forge build: SCPT + SPEL, round-trip 0 mismatches, lint 0 errors."
+  - "forge script-decode on the built plugin: 100%, and the listing reads like the source."
+  - "In game (test profile, phase 3c): player.addspell <load-order id>; cast: the start message, 'Ember pulse 1'..'10' every 3 s, then 'fades after 10 pulses'."

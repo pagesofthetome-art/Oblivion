@@ -225,7 +225,7 @@ def _build_plugin(s, out_dir: Path, a, t0: float, caps) -> int:
     ids_file = specmod.ids_path(s)
     kb_db = s.resolve(s.raw["kb"]) if s.raw.get("kb") else DEFAULT_DB
     try:
-        res = pp.build(s, ids_file, kb_db)
+        res = pp.build(s, ids_file, kb_db, s.resolve(s.raw["commands"]) if s.raw.get("commands") else None)
     except (pp.PluginError, R.CodecError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -269,7 +269,8 @@ def _build_plugin(s, out_dir: Path, a, t0: float, caps) -> int:
     status = "failed" if failures else "ok"
     code_files = [TOOLS / "tes4_plugin.py", TOOLS / "modlint.py", TOOLS / "merge-patch" / "patchlib.py",
                   TOOLS / "forge" / "records.py", Path(pp.__file__), TOOLS / "forge" / "kb" / "data" / "record_schemas.json",
-                  TOOLS / "forge" / "kb" / "data" / "layout_overrides.json", Path(__file__)]
+                  TOOLS / "forge" / "kb" / "data" / "layout_overrides.json", Path(__file__),
+                  TOOLS / "forge" / "script" / "compiler.py", TOOLS / "forge" / "script" / "commands.py"]
     log = {
         "spec": s.name, "kind": s.kind, "status": status,
         "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)), "finished": buildlog.now(),

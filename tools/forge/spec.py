@@ -4,7 +4,7 @@ A spec is YAML (needs PyYAML) or JSON. Shape, version 1:
 
     forge_spec: 1
     name: my-mod                     # slug, used for the build folder
-    kind: merge_patch                # merge_patch (phase 1); plugin (phase 3a: records; scripts in 3b)
+    kind: merge_patch                # merge_patch (phase 1); plugin (phase 3: records + scripts)
     intent: "What the player should get, in plain words."
     vars: {STEAM_DATA: "C:/..."}     # ${STEAM_DATA} anywhere in the spec; ${env:NAME} reads the environment
     output: {plugin: X.esp, dir: ../forge-builds/my-mod}
@@ -32,7 +32,7 @@ from pathlib import Path
 SPEC_VERSION = 1
 KINDS = {
     "merge_patch": "implemented",
-    "plugin": "implemented",     # records (3a); scripts compile from phase 3b
+    "plugin": "implemented",     # records (3a); scripts (3b, forge's own compiler)
 }
 PERMISSIONS = {
     "PROJECT_OWNED", "CAN_DISTRIBUTE", "PATCH_ONLY", "REQUIRES_ORIGINAL_DOWNLOAD",
@@ -188,8 +188,14 @@ def validate(spec: Spec) -> list[str]:
         for i, rec in enumerate(recs or []):
             if not isinstance(rec, dict) or not rec.get("sig") or not rec.get("edid"):
                 errs.append(f"records[{i}] needs sig and edid")
-        if r.get("scripts"):
-            errs.append("scripts: compiling through the CS bridge arrives in phase 3b; leave scripts: [] for now")
+        scr = r.get("scripts")
+        if scr is not None and not isinstance(scr, list):
+            errs.append("scripts must be a list")
+        for i, sc in enumerate(scr or []):
+            if not isinstance(sc, dict) or not sc.get("edid"):
+                errs.append(f"scripts[{i}] needs edid")
+            elif not (sc.get("source") or sc.get("file")):
+                errs.append(f"scripts[{i}] ({sc['edid']}) needs source: or file:")
     return errs
 
 
@@ -202,7 +208,7 @@ def ids_path(spec: "Spec") -> Path:
 def required_caps(spec: Spec) -> list[str]:
     caps = list(KIND_CAPS.get(spec.kind, []))
     if spec.kind == "plugin" and spec.raw.get("scripts"):
-        caps += ["script.compile", "script.lint"]
+        caps += ["script.compile"]
     return caps
 
 
