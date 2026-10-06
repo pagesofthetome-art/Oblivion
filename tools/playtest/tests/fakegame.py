@@ -20,7 +20,7 @@ class FakeGame:
         self.b = {"menu_at": 3.0, "load_seconds": 2.0, "damage": 25.0, "freeze_at": None, "printc": True,
                   "has_spell_works": True, "menu_console": True, "save_dir": None, "new_game_after": None,
                   "continue_after": None, "chargen_seconds": 10.0, "save_before_chargen": False,
-                  "logger": "scof"}           # scof | conscribe (an OBSE plugin logging every line) | none
+                  "logger": "printtofile"}    # printtofile (xOBSE) | conscribe (a logging plugin) | none
         self.b.update(behaviour or {})
         self.state = "starting"
         self.console_open = False
@@ -95,21 +95,75 @@ class FakeGame:
             self.history.append(f"GAME KEYS {t!r}")      # typing into the game itself = a bug
 
     # console
+    REFS = {"forgearenadummyref", "forgearenacasterref", "forgestreetmerchantref", "forgestreettownsfolkref",
+            "forgestreettownsfolk2ref"}
+
     def write(self, line: str):
-        target = None
-        if self.b["logger"] == "scof":
-            target = self.log
-        elif self.b["logger"] == "conscribe":
+        """Console output that a logging plugin would capture (logger == conscribe)."""
+        if self.b["logger"] == "conscribe":
             target = self.dir / "Data" / "ConScribe Logs" / "Console.log"
             target.parent.mkdir(parents=True, exist_ok=True)
-        if target:
             with open(target, "a", encoding="cp1252") as fh:
                 fh.write(line + "\n")
+
+    def _fn(self, ref: str, fn: str, args: list[str]):
+        """Evaluate a function on a reference; None = the console printed an error."""
+        if ref.lower() not in ("player",) and ref.lower() not in self.REFS:
+            self.write(f"Script command \"{ref}.{fn}\" not found.")
+            return None
+        if fn == "getinworldspace":
+            return 1.0 if args and args[0] == self.world else 0.0
+        if fn == "getincell":
+            return 1.0 if args and args[0] == self.cell else 0.0
+        if fn == "addspell":
+            if self.b["has_spell_works"]:
+                self.spells.add(args[0])
+            return 0.0
+        if fn == "hasspell":
+            return 1.0 if args[0] in self.spells else 0.0
+        if fn == "cast":
+            self.av["health"] -= self.b["damage"]
+            return 0.0
+        if fn == "getav":
+            return self.av["health"]
+        if fn == "getdead":
+            return 0.0
+        if fn in ("moveto", "setpos", "setangle", "placeatme"):
+            return 0.0
+        self.write(f"Script command \"{fn}\" not found.")
+        return None
+
+    def _expr(self, expr: str):
+        expr = expr.strip()
+        try:
+            return float(expr)
+        except ValueError:
+            pass
+        m = re.match(r"^([\w]+)\.(\w+)\s*(.*)$", expr)
+        if not m:
+            self.write(f"Script command \"{expr}\" not found.")
+            return None
+        return self._fn(m.group(1), m.group(2).lower(), m.group(3).split())
+
+    def _save(self, name: str):
+        """A save with the globals, laid out like a real .ess (essglobals)."""
+        import tes4_plugin as tp
+        from playtest import essglobals
+        sd = Path(self.b["save_dir"])
+        sd.mkdir(parents=True, exist_ok=True)
+        tc = self.dir / "Data" / "ForgeTestCells.esp"
+        oids = {}
+        if tc.is_file():
+            oids = {r.editor_id: r.form_id & 0xFFFFFF for _, r in tp.iter_records(tc, {"GLOB"})}
+        values = {(1 << 24) | oids[g]: v for g, v in self.globals.items() if g in oids}
+        essglobals.write_fake(sd / (name + ".ess"), ["Oblivion.esm", "ForgeTestCells.esp"], values)
 
     def run(self, cmd: str):
         cmd = cmd.strip()
         self.history.append(cmd)
         low = cmd.lower()
+        if not hasattr(self, "globals"):
+            self.globals = {}
         if low.startswith("coc "):
             self.cell, self.world = cmd.split(None, 1)[1], None
             self.state, self.t_load = "loading", self._now
@@ -121,9 +175,7 @@ class FakeGame:
             self.console_open = False
             return
         if low.startswith("save "):
-            sd = Path(self.b["save_dir"])
-            sd.mkdir(parents=True, exist_ok=True)
-            (sd / (cmd.split(None, 1)[1] + ".ess")).write_bytes(b"save")
+            self._save(cmd.split(None, 1)[1])
             return
         if low.startswith("message "):
             self.messages.append(cmd.split(None, 1)[1].strip('"'))
@@ -137,52 +189,42 @@ class FakeGame:
                 if line.strip():
                     self.run(line)
             return
+        if low.startswith(("scof", "con_scof")):
+            self.write('Script command "scof" not found.')                # run 6
+            return
         if low.startswith("prid "):
             self.selected = cmd.split(None, 1)[1]
-            return
-        if re.match(r"^[0-9A-Fa-f]{8}\.", cmd):
-            self.write(f'Script command "{cmd.split()[0]}" not found.')     # what the PC printed in run 5
-            return
-        if self.b["logger"] == "scof" and low.startswith("con_scof "):
-            cmd, low = cmd[4:], low[4:]
-        if low.startswith(("scof ", "con_scof ")):
-            if self.b["logger"] != "scof":
-                return
-            arg = cmd.split(None, 1)[1]
-            self.log = None if arg == "0" else self.dir / arg
             return
         if low.startswith("printc "):
             if self.b["printc"]:
                 self.write(cmd.split(None, 1)[1].strip('"'))
             return
-        m = re.match(r"^([\w\"]+)\.(\w+)\s*(.*)$", cmd)
+        if low.startswith("printtofile "):
+            m = re.match(r'^printtofile\s+"([^"]+)"\s+"([^"]*)"\s*(\w+)?\s*$', cmd, re.I)
+            if m and self.b["logger"] == "printtofile":
+                text = m.group(2)
+                if m.group(3):
+                    text = text.replace("%.2f", f"{self.globals.get(m.group(3), 0.0):.2f}")
+                text = text.replace("%r", "\n")
+                with open(self.dir / m.group(1), "a", encoding="cp1252") as fh:
+                    fh.write(text)
+            return
+        m = re.match(r"^set\s+(\w+)\s+to\s+(.+)$", cmd, re.I)
         if m:
-            fn, args = m.group(2).lower(), m.group(3).split()
-        else:                                               # no prefix: acts on the prid-selected ref
-            parts = cmd.split()
-            fn, args = parts[0].lower(), parts[1:]
-            if not getattr(self, "selected", None):
-                self.write(f"Script command \"{cmd}\" not found.")
-                return
-        if fn == "getinworldspace":
-            self.write(f"GetInWorldspace >> {1.0 if args and args[0] == self.world else 0.0:.2f}")
-        elif fn == "getincell":
-            self.write(f"GetInCell >> {1.0 if args and args[0] == self.cell else 0.0:.2f}")
-        elif fn == "addspell":
-            if self.b["has_spell_works"]:
-                self.spells.add(args[0])
-        elif fn == "hasspell":
-            self.write(f"HasSpell >> {1.0 if args[0] in self.spells else 0.0:.2f}")
-        elif fn == "cast":
-            self.av["health"] -= self.b["damage"]
-        elif fn == "getav":
-            self.write(f"GetActorValue >> {self.av['health']:.2f}")
-        elif fn == "getdead":
-            self.write("GetDead >> 0.00")
-        elif fn in ("moveto", "setpos", "setangle"):
-            pass
-        else:
-            self.write(f"Script command \"{fn}\" not found.")
+            v = self._expr(m.group(2))
+            if v is not None:
+                self.globals[m.group(1)] = v
+            return
+        if re.match(r"^[0-9A-Fa-f]{8}\.", cmd):
+            self.write(f'Script command "{cmd.split()[0]}" not found.')     # run 5
+            return
+        m = re.match(r"^(\w+)\.(\w+)\s*(.*)$", cmd)
+        if m:
+            v = self._fn(m.group(1), m.group(2).lower(), m.group(3).split())
+            if v is not None and m.group(2).lower().startswith("get"):
+                self.write(f"{m.group(2)} >> {v:.2f}")
+            return
+        self.write(f"Script ', line 1: Function '{cmd.split()[0]}' requires a reference.")   # run 6: prid
 
 
 class FakePlatform(plat.Platform):

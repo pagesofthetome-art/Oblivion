@@ -2,7 +2,7 @@
 
 Each track updates its own section when it finishes (see the TES4Forge roadmap).
 
-## Track E: playtest (2026-10-06, run 6 prepared)
+## Track E: playtest (2026-10-06, run 7 prepared)
 
 Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge playtest | test | preview`.
 
@@ -61,4 +61,13 @@ Code: `tools/playtest/` ([README](tools/playtest/README.md)), CLI group `forge p
   - the console is photographed after each batch;
   - HasSpell is dropped from the example;
   - 84 tests.
-- **Waiting on:** PC run 6, plus research on which logging this OBSE supports.
+- **PC run 6:** the console printed values (`GetInCell >> 1.00`) and the quit note showed. Still wrong:
+  - prid doesn't carry over between batch lines ("requires a reference");
+  - `scof` doesn't exist in xOBSE 22.13.
+- **Run 7:**
+  - references named by EditorID in every line;
+  - check values go to sentinel-guarded result globals, logged with xOBSE PrintToFile;
+  - a result save is read back (`essglobals.py`) when there is no log;
+  - make-save confirms the location from the new save's own global;
+  - 88 tests.
+- **Waiting on:** PC run 7. The goal is a PASS (the fire bolt lowers the dummy's health).

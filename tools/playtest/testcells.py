@@ -85,6 +85,10 @@ BRING = {
     "custom": [("ForgeArenaDummyRef", 0, 500, 0), ("ForgeArenaCasterRef", 200, 100, 0)],
 }
 APPEARANCE_SUBS = ("HNAM", "LNAM", "ENAM", "HCLR", "FGGS", "FGGA", "FGTS", "FNAM")
+# result globals: checks store their values here and the last batch saves the game, so results
+# reach disk even when the console log doesn't (run 5). See essglobals.py.
+MAX_CHECKS = 32
+RESULT_GLOBALS = ["ForgeRunStamp", "ForgeRunDone", "ForgeRInPlace"] + [f"ForgeR{i:02d}" for i in range(1, MAX_CHECKS + 1)]
 
 
 def _package(w: PluginWriter, edid: str, p: dict) -> int:
@@ -184,6 +188,9 @@ def build_plugin(esm: Path | None = None) -> tuple[bytes, dict]:
             x += 200.0
     lay["refs"] = {e: f"{w.fid(e):08X}" for d in NPCS.values()
                    for e in (d["ref"] if isinstance(d["ref"], list) else [d["ref"]])}
+    for g in RESULT_GLOBALS:                         # last, so earlier FormIDs never move
+        w.record("GLOB", g).add("FNAM", b"f").add("FLTV", struct.pack("<f", 0.0))
+    lay["globals"] = {g: w.fid(g) & 0xFFFFFF for g in RESULT_GLOBALS}
     return w.build(), lay
 
 

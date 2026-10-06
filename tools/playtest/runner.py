@@ -342,7 +342,7 @@ def _batch_files(chunks: list[dict]) -> list[tuple[str, bytes]]:
 
 def find_run_log(m: profile.Machine, marker: str, since: float) -> Path | None:
     """The console log of this run, wherever the logger put it: forge_test.log in the game folder
-    (scof / con_SCOF), or any .log/.txt written since the run started under the game folder or
+    (xOBSE PrintToFile), or any .log/.txt written since the run started under the game folder or
     My Games\\Oblivion (e.g. an OBSE console-logging plugin) that contains this run's BEGIN marker."""
     direct = m.game_dir / mf.LOG_NAME
     if direct.is_file():
@@ -361,6 +361,42 @@ def find_run_log(m: profile.Machine, marker: str, since: float) -> Path | None:
             except OSError:
                 continue
     return None
+
+
+def _collect_results(m: profile.Machine, man: dict, prep: Prepared, run_dir: Path, since: float, log) -> dict:
+    """After the game has exited: the PrintToFile log (wherever xOBSE put it), else the result
+    globals from the ForgePlaytestResult save. Both are removed from the game/save folders."""
+    out: dict = {}
+    found = find_run_log(m, f"FORGE|BEGIN|{man['run_id']}", since)
+    if found and not any(">>" in l for l in testlog.read_lines(found)):
+        out["log_without_values"] = str(found)            # markers only: let the result save decide
+        found = None
+    if found:
+        shutil.copy2(found, run_dir / mf.LOG_NAME)
+        out["log_source"] = str(found)
+        if found.resolve() != (m.game_dir / mf.LOG_NAME).resolve() and m.game_dir.resolve() in found.resolve().parents:
+            try:
+                found.unlink()                            # written by the game for this run only
+            except OSError:
+                pass
+    save = m.save_dir / f"{man['results']['save']}.ess"
+    if save.is_file():
+        try:
+            from playtest import essglobals
+            values = essglobals.plugin_globals(save, testcells.PLUGIN_NAME, (prep.layout or {}).get("globals", {}))
+            out["save_values"] = values
+            if not found:
+                (run_dir / mf.LOG_NAME).write_text(testlog.log_from_globals(man, values), encoding="cp1252")
+                out["log_source"] = f"result save {save.name}"
+        except (OSError, ValueError) as e:
+            out["save_error"] = str(e)
+            log(f"could not read the result save: {e}")
+        for f in m.save_dir.glob(f"{man['results']['save']}.*"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    return out
 
 
 def _new_run_dir(m: profile.Machine) -> Path:
@@ -412,10 +448,8 @@ def run(target_path: str | Path, opts: Options, m: profile.Machine | None = None
                                     "`forge playtest make-save` first (once).")
             else:
                 extra.update(_play(m, p, prof.sess, man, loc, opts, t0, run_dir))
-            found = find_run_log(m, f"FORGE|BEGIN|{man['run_id']}", started_wall) if not opts.dry_run else None
-            if found:
-                shutil.copy2(found, run_dir / mf.LOG_NAME)
-                extra["log_source"] = str(found)
+            if not opts.dry_run:
+                extra.update(_collect_results(m, man, prep, run_dir, started_wall, log))
             result = testlog.evaluate(man, run_dir / mf.LOG_NAME if (run_dir / mf.LOG_NAME).is_file() else None, extra)
             if opts.dry_run:
                 result["verdict"] = "DRY-RUN"
@@ -452,12 +486,13 @@ def make_save(opts: Options, m: profile.Machine | None = None, p: plat.Platform 
         prep = prepare(Target(None, mf.parse_plan(None), None), Options(cell=opts.cell), m)
         prof.apply(prep, opts)
         loc = prep.location
-        lines = [f"con_SCOF {mf.LOG_NAME}", f"scof {mf.LOG_NAME}"]
+        lines = []
         if loc.setpos:
             x, y, z, _ = loc.setpos
             lines += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}"]
-        lines += [f"player.GetInCell {loc.cell_edid}" if loc.cell_edid else f"player.GetInWorldspace {loc.world_edid}",
-                  f"save {NEW_SAVE}", f'message "{QUIT_NOTE}"', "scof 0"]
+        probe = f"GetInCell {loc.cell_edid}" if loc.cell_edid else f"GetInWorldspace {loc.world_edid}"
+        lines += mf._value("ForgeRInPlace", probe.split()[0], f"player.{probe}")
+        lines += [f"save {NEW_SAVE}", f'message "{QUIT_NOTE}"']
         for name, data in _batch_files([{"file": "fptsave.txt", "lines": lines}]):
             prof.sess.stage(m.game_dir / name, data=data)
         game_log = m.game_dir / mf.LOG_NAME
@@ -492,18 +527,28 @@ def make_save(opts: Options, m: profile.Machine | None = None, p: plat.Platform 
         finally:
             if drv is not None:
                 drv.close_trace()
-        # the game has exited: judge the log, then keep or drop the new save
+        # the game has exited: the new save's own ForgeRInPlace global says where the player was;
+        # the PrintToFile log is the second opinion
         text = game_log.read_text("cp1252", "replace") if game_log.is_file() else ""
         if game_log.is_file():
             shutil.copy2(game_log, run_dir / mf.LOG_NAME)
         res["probe"] = [l for l in text.splitlines() if ">>" in l][-3:]
-        answers = [re.search(r"GetIn(?:Cell|Worldspace).*>>\s*([-\d.]+)\s*$", l) for l in text.splitlines()]
+        answers = [re.search(r"GetIn(?:Cell|Worldspace).*>>\s*([-\d.]+)", l) for l in testlog.split_text(text)]
         answers = [float(a.group(1)) for a in answers if a]
         new = m.save_dir / f"{NEW_SAVE}.ess"
+        if new.is_file():
+            try:
+                from playtest import essglobals
+                g = essglobals.plugin_globals(new, testcells.PLUGIN_NAME, (prep.layout or {}).get("globals", {}))
+                if "ForgeRInPlace" in g:
+                    answers.append(g["ForgeRInPlace"])
+                    res["save_in_place"] = g["ForgeRInPlace"]
+            except (OSError, ValueError) as e:
+                res["save_error"] = str(e)
         there = bool(answers) and answers[-1] == 1.0
         if not answers and new.is_file():
-            # the save line comes after the location probe in the same batch, so the batch ran; only
-            # the log is missing (where Oblivion writes scof output is still unconfirmed on the PC)
+            # neither the log nor the save's own global answered, but the batch ran (the save line
+            # comes after the location probe): keep the save and say the location is unconfirmed
             there = True
             res["warning"] = "no forge_test.log: location not confirmed by the log, the save was kept"
             log(f"warning: {res['warning']}")
@@ -563,7 +608,7 @@ def _play(m, p: plat.Platform, sess, man: dict, loc: vanilla.Location, opts: Opt
                 if c["wait_before"]:
                     drv.idle(c["wait_before"])
                 if not drv.run_batch(c["command"], game_log):
-                    drv.note(f"{c['command']}: nothing in the log yet (Oblivion may buffer it until `scof 0`)")
+                    drv.note(f"{c['command']}: nothing in forge_test.log yet (the result save is read after you quit)")
             drv.idle(1.0)
             drv.shot("checks-done")
             res = testlog.evaluate(man, game_log if game_log.is_file() else None)

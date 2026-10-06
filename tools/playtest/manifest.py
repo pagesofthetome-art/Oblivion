@@ -19,10 +19,13 @@ result is compared after the run).
 How it runs in game. Oblivion can't read JSON, and a compiled OBSE quest would need the
 Construction Set for every new manifest. So the manifest is compiled into numbered console batch
 files (fpt1.txt, fpt2.txt ...; one per `wait`), which the boot driver runs with the vanilla `bat`
-command. The first batch starts `scof forge_test.log`, so every console result is written to the
-log; xOBSE's PrintC adds a marker line before each step. `forge test` then compares the logged
-values with the expectations: a check with no logged value, a console error, or a missing END
-marker is a failure. "It launched" is never a pass.
+command. Each line is compiled by the game as a one-line script, so references are named by their
+EditorID (`ForgeArenaDummyRef.GetAV Health`). Each check value goes into a result global from
+ForgeTestCells.esp (first set to a sentinel, so a failed line never counts as a value), and xOBSE's
+PrintToFile writes markers and values to forge_test.log. The last batch also saves the game as
+ForgePlaytestResult, whose globals are a second way to read the results. `forge test` then compares
+the values with the expectations: a check with no value, or a missing END, is a failure. "It
+launched" is never a pass.
 """
 
 from __future__ import annotations
@@ -180,40 +183,60 @@ class FormTable:
 
 
 # ---------------------------------------------------------------- compile
-def _on(ref: str, command: str) -> list[str]:
-    """Run a command on a reference. Oblivion's console does not take `<FormID>.Command` (run 5:
-    `Script command "0C00080A.GetAV" not found`), so other references are picked with prid first."""
-    if ref == "player":
-        return [f"player.{command}"]
-    return [f"prid {ref}", command]
+RESULT_SAVE = "ForgePlaytestResult"
+MAX_CHECKS = 32
+SENTINEL = -99999                                      # "no value": set first, so a failed line can't pass
+
+
+def _ref(name, forms: FormTable) -> str:
+    """How a batch line names a reference: `player`, or the persistent reference's EditorID.
+
+    Run 5: `<FormID>.Command` is not accepted ("Script command 0C00080A.GetAV not found").
+    Run 6: `prid` selects the reference, but the next batch line doesn't use the selection
+    ("Function 'GetActorValue' requires a reference"). Every console line is compiled as a small
+    script, and scripts name persistent references by EditorID, so that is what works."""
+    s = str(name).strip()
+    if s.lower() in ("player", "playerref"):
+        return "player"
+    hit = forms.names.get(s.lower())
+    if not hit or hit[2] not in ("REFR", "ACHR", "ACRE"):
+        raise ManifestError(f"{s!r} is not a placed reference with an EditorID in the test plugins "
+                            "(console lines can only name persistent references by EditorID)")
+    return s
+
+
+def _target(name, forms: FormTable) -> str:
+    """A parameter that is a reference if it can be, else a form (FormID)."""
+    try:
+        return _ref(name, forms)
+    except ManifestError:
+        return forms.form(name)
 
 
 def _line(st: dict, forms: FormTable) -> list[str]:
     op = st["do"]
-    ref = forms.form(st.get("ref", "player"))
-    if op == "additem":
-        return _on(ref, f"additem {forms.form(st['form'])} {st.get('count', 1)}")
-    if op == "removeitem":
-        return _on(ref, f"removeitem {forms.form(st['form'])} {st.get('count', 1)}")
-    if op == "equip":
-        return _on(ref, f"equipitem {forms.form(st['form'])}")
-    if op == "addspell":
-        return _on(ref, f"addspell {forms.form(st['form'])}")
     if op == "cast":
-        return _on(forms.form(st.get("caster", "player")), f"cast {forms.form(st['spell'])} {forms.form(st['target'])}")
+        return [f"{_ref(st.get('caster', 'player'), forms)}.cast {forms.form(st['spell'])} {_target(st['target'], forms)}"]
     if op == "spawn":
-        return _on(forms.form(st.get("at", "player")), f"placeatme {forms.form(st['form'])} {st.get('count', 1)}")
-    if op in ("setav", "modav"):
-        return _on(ref, f"{op} {st['av']} {st['value']}")
+        return [f"{_ref(st.get('at', 'player'), forms)}.placeatme {forms.form(st['form'])} {st.get('count', 1)}"]
     if op == "moveto":
-        return [f"player.moveto {forms.form(st['to'])}"]
+        return [f"player.moveto {_target(st['to'], forms)}"]
     if op == "weather":
         return [f"fw {forms.form(st['form'])}"]
     if op == "console":
         return [st["command"]]
+    ref = _ref(st.get("ref", "player"), forms)
+    if op in ("additem", "removeitem"):
+        return [f"{ref}.{op} {forms.form(st['form'])} {st.get('count', 1)}"]
+    if op == "equip":
+        return [f"{ref}.equipitem {forms.form(st['form'])}"]
+    if op == "addspell":
+        return [f"{ref}.addspell {forms.form(st['form'])}"]
+    if op in ("setav", "modav"):
+        return [f"{ref}.{op} {st['av']} {st['value']}"]
     if op == "check":
         args = " ".join(_arg(a, forms) for a in st["args"])
-        return _on(ref, f"{st['fn']} {args}".rstrip())
+        return [f"{ref}.{st['fn']} {args}".rstrip()]
     raise ManifestError(f"cannot compile {op}")
 
 
@@ -224,14 +247,33 @@ def _arg(a: str, forms: FormTable) -> str:
     hit = forms.names.get(a.lower())
     if hit and hit[2] == "CELL":
         return a                                       # GetInCell & co. take the cell's EditorID
+    if hit and hit[2] in ("REFR", "ACHR", "ACRE"):
+        return a                                       # references by EditorID
     try:
         return forms.form(a)
     except ManifestError:
         return a                                       # e.g. an actor value name (Health)
 
 
+def run_stamp(run_id: str) -> int:
+    """A number for the run, exact in a float global (< 2^24)."""
+    import zlib
+    return zlib.crc32(run_id.encode()) % 9_000_000 + 1
+
+
 def marker(*parts) -> str:
     return "FORGE|" + "|".join(str(p) for p in parts)
+
+
+def _say(text: str) -> list[str]:
+    """On screen (printc) and into the log file (xOBSE PrintToFile; run 6: scof doesn't exist)."""
+    return [f'printc "{text}"', f'PrintToFile "{LOG_NAME}" "{text}%r"']           # %r: OBSE line break
+
+
+def _value(global_: str, label: str, expr: str) -> list[str]:
+    """Store a value in a result global (also read back from the result save) and log it."""
+    return [f"set {global_} to {SENTINEL}", f"set {global_} to {expr}",
+            f'PrintToFile "{LOG_NAME}" "{label} >> %.2f%r" {global_}']
 
 
 def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: str, spec: str | None,
@@ -243,9 +285,8 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
     """
     run_id = run_id or secrets.token_hex(4)
     chunks: list[dict] = [{"wait_before": 0.0, "lines": []}]
-    # con_SCOF (xOBSE) and scof (vanilla) both point the console log at the same file; whichever
-    # exists works (run 3: the street batches left no log at all)
-    head = [f"con_SCOF {LOG_NAME}", f"scof {LOG_NAME}", f'printc "{marker("BEGIN", run_id)}"']
+    stamp = run_stamp(run_id)
+    head = _say(marker("BEGIN", run_id)) + [f"set ForgeRunStamp to {stamp}"]
     if location.get("moveto"):
         head.append(f"player.moveto {location['moveto']}")
     if location.get("setpos"):
@@ -253,22 +294,30 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         head += [f"player.setpos x {x:.1f}", f"player.setpos y {y:.1f}", f"player.setpos z {z + 8:.1f}",
                  f"player.setangle z {math.degrees(heading) % 360:.1f}"]
     for ref, dx, dy, dz in bring:
-        head += _on(forms.form(ref), f"moveto player {dx} {dy} {dz}")
-    head.append(f'printc "{marker("CELL", location.get("cell_edid") or location.get("world_edid"))}"')
-    if location.get("cell_edid"):
-        head.append(f"player.GetInCell {location['cell_edid']}")
-    else:
-        head.append(f"player.GetInWorldspace {location['world_edid']}")
+        head.append(f"{_ref(ref, forms)}.moveto player {dx} {dy} {dz}")
+    head += _say(marker("CELL", location.get("cell_edid") or location.get("world_edid")))
+    probe = (f"GetInCell {location['cell_edid']}" if location.get("cell_edid")
+             else f"GetInWorldspace {location['world_edid']}")
+    head += _value("ForgeRInPlace", probe.split()[0], f"player.{probe}")
     chunks[0]["lines"] += head
+    result_globals: dict[str, str] = {}
+    checks = [st for st in plan["steps"] if st["do"] == "check"]
+    if len(checks) > MAX_CHECKS:
+        raise ManifestError(f"at most {MAX_CHECKS} checks per run (the result globals); got {len(checks)}")
     for st in plan["steps"]:
         if st["do"] == "wait":
             chunks.append({"wait_before": st["seconds"], "lines": []})
             continue
         lines = _line(st, forms)
         st["console"] = " | ".join(lines)
-        chunks[-1]["lines"] += [f'printc "{marker("STEP", st["n"], st["do"])}"', *lines]
-    chunks[-1]["lines"] += [f'printc "{marker("END", run_id)}"', "scof 0",
-                            'message "Forge: checks done. Play on, quit the game when you are ready."']
+        if st["do"] == "check":
+            g = f"ForgeR{len(result_globals) + 1:02d}"
+            result_globals[str(st["n"])] = g
+            lines = _value(g, st["fn"], lines[0])
+        chunks[-1]["lines"] += _say(marker("STEP", st["n"], st["do"])) + lines
+    chunks[-1]["lines"] += _say(marker("END", run_id)) + [
+        f"set ForgeRunDone to {stamp}", f"save {RESULT_SAVE}",
+        'message "Forge: checks done. Play on, quit the game when you are ready."']
     for i, c in enumerate(chunks, 1):
         c["file"] = f"{BATCH_PREFIX}{i}.txt"
         c["command"] = f"bat {BATCH_PREFIX}{i}"
@@ -276,6 +325,7 @@ def build(plan: dict, forms: FormTable, *, location: dict, bring: list, plugin: 
         "forge_playtest": MANIFEST_VERSION, "run_id": run_id, "spec": spec, "plugin": plugin,
         "cell": location.get("cell_edid") or location.get("world_edid"), "location": location,
         "load_order": forms.load_order, "log": LOG_NAME, "steps": plan["steps"], "notes": plan.get("notes", []),
+        "results": {"save": RESULT_SAVE, "stamp": stamp, "probe": probe, "checks": result_globals},
         "chunks": chunks,
     }
 

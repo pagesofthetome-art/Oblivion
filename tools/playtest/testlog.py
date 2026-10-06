@@ -1,4 +1,5 @@
-"""Read forge_test.log (the console output captured with `scof`) and judge the run.
+"""Read forge_test.log (written by xOBSE PrintToFile, or rebuilt from the result save's globals)
+and judge the run.
 
 A run passes only when: the BEGIN marker carries this manifest's run id, the player reached the
 test location (GetInCell / GetInWorldspace >> 1), every check produced a value that meets its expectation, no step hit a
@@ -18,9 +19,20 @@ OPS = {"==": lambda a, b: abs(a - b) < 1e-4, "!=": lambda a, b: abs(a - b) >= 1e
        "<=": lambda a, b: a <= b, ">": lambda a, b: a > b, ">=": lambda a, b: a >= b}
 
 
+SENTINEL = -99999.0                                  # a result global that was never set (manifest.SENTINEL)
+
+
+def split_text(text: str) -> list[str]:
+    """Lines of a log. PrintToFile may or may not end its lines, so markers and values are also
+    split where they meet."""
+    text = re.sub(r"\s*(?=FORGE\|)", "\n", text)
+    text = re.sub(r"(FORGE\|\S*)[ \t]+(?=\S)", "\\1\n", text)            # markers never contain spaces
+    text = re.sub(r"(>>\s*[-+]?\d+(?:\.\d+)?)(?![\d.])\s*", "\\1\n", text)
+    return [l.strip() for l in text.splitlines() if l.strip()]
+
+
 def read_lines(path: Path) -> list[str]:
-    raw = Path(path).read_bytes()
-    return [l.strip() for l in raw.decode("cp1252", "replace").splitlines() if l.strip()]
+    return split_text(Path(path).read_bytes().decode("cp1252", "replace"))
 
 
 def _is_probe(fn: str) -> bool:
@@ -38,7 +50,7 @@ def parse(lines: list[str]) -> dict:
             continue                                   # the echoed command, not its output
         m = MARK_RE.search(l)
         if m:
-            parts = m.group("rest").split("|")
+            parts = m.group("rest").strip().strip('"').split("|")
             kind = parts[0]
             out["marked"] = True
             if kind == "BEGIN":
@@ -55,6 +67,11 @@ def parse(lines: list[str]) -> dict:
                 out["steps"].setdefault(cur, {"values": [], "errors": [], "lines": []})
             continue
         v = VALUE_RE.match(l)
+        if v and abs(float(v.group("v")) - SENTINEL) < 0.5:
+            v = None                                    # the line before it failed: no value
+            if cur not in (None, "cell"):
+                out["steps"][cur]["errors"].append("no value (the check line failed in game)")
+            continue
         if cur == "cell":
             if v and _is_probe(v.group("fn")):
                 out["in_cell"] = float(v.group("v"))
@@ -174,3 +191,29 @@ def report_text(res: dict) -> str:
     for p in res["problems"]:
         lines.append(f"  problem: {p}")
     return "\n".join(lines)
+
+
+def log_from_globals(manifest: dict, values: dict[str, float]) -> str:
+    """Turn the result globals read from the result save into the same log text the console log
+    would hold, so one judge handles both channels. Missing globals give missing lines."""
+    res = manifest["results"]
+    run_id, stamp = manifest["run_id"], float(res["stamp"])
+    lines = []
+    if values.get("ForgeRunStamp") == stamp:
+        lines.append(f"FORGE|BEGIN|{run_id}")
+    lines.append(f"FORGE|CELL|{manifest.get('cell')}")
+    if "ForgeRInPlace" in values and values.get("ForgeRunStamp") == stamp:
+        fn = res["probe"].split()[0]
+        if abs(values["ForgeRInPlace"] - SENTINEL) < 0.5:
+            values = {**values, "ForgeRInPlace": 0.0}
+        lines.append(f"{fn} >> {values['ForgeRInPlace']:.2f}")
+    for st in manifest.get("steps", []):
+        if st["do"] == "wait":
+            continue
+        lines.append(f"FORGE|STEP|{st['n']}|{st['do']}")
+        g = res["checks"].get(str(st["n"]))
+        if g and g in values and values.get("ForgeRunStamp") == stamp:
+            lines.append(f"{st.get('fn', 'Value')} >> {values[g]:.2f}")       # a sentinel stays a sentinel
+    if values.get("ForgeRunDone") == stamp:
+        lines.append(f"FORGE|END|{run_id}")
+    return "\n".join(lines) + "\n"

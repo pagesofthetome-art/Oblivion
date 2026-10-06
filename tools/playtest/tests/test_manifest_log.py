@@ -50,20 +50,31 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(len(m["chunks"]), 2)
         self.assertEqual(m["chunks"][1]["wait_before"], 3.0)
         first, second = m["chunks"][0]["lines"], m["chunks"][1]["lines"]
-        self.assertEqual(first[:9], ["con_SCOF forge_test.log", "scof forge_test.log", 'printc "FORGE|BEGIN|abcd1234"',
-                                     "prid 0300081A", "moveto player 0 600 0", "prid 0300081B", "moveto player 200 100 0",
-                                     'printc "FORGE|CELL|ArenaArena"', "player.GetInCell ArenaArena"])
+        stamp = m["results"]["stamp"]
+        self.assertEqual(first[:5], ['printc "FORGE|BEGIN|abcd1234"', 'PrintToFile "forge_test.log" "FORGE|BEGIN|abcd1234%r"',
+                                     f"set ForgeRunStamp to {stamp}",
+                                     "ForgeArenaDummyRef.moveto player 0 600 0", "ForgeArenaCasterRef.moveto player 200 100 0"])
+        self.assertIn("set ForgeRInPlace to player.GetInCell ArenaArena", first)
         self.assertIn("player.addspell 02000800", first)
-        self.assertIn("player.HasSpell 02000800", first)
-        self.assertIn("GetAV Health", first)
-        i = first.index("cast 02000800 0300081A")
-        self.assertEqual(first[i - 1], "prid 0300081B", "the caster is picked with prid first")
-        self.assertFalse([l for l in first if re.match(r"^[0-9A-F]{8}\.", l)],
-                         "no <FormID>.Command lines: the console rejects them (run 5)")
+        self.assertIn("set ForgeR01 to -99999", first)
+        self.assertIn("set ForgeR01 to player.HasSpell 02000800", first)
+        self.assertIn('PrintToFile "forge_test.log" "HasSpell >> %.2f%r" ForgeR01', first)
+        self.assertIn("set ForgeR02 to ForgeArenaDummyRef.GetAV Health", first)
+        self.assertIn("ForgeArenaCasterRef.cast 02000800 ForgeArenaDummyRef", first)
+        self.assertFalse([l for l in first + second if re.match(r"^[0-9A-F]{8}\.", l) or l.startswith("prid")],
+                         "no <FormID>.Command (run 5) and no prid (run 6): references by EditorID")
+        self.assertFalse([l for l in first + second if "scof" in l.lower()], "scof does not exist (run 6)")
         self.assertIn("player.additem 0000000F 100", second)
-        self.assertEqual(second[-3:-1], ['printc "FORGE|END|abcd1234"', "scof 0"])
+        self.assertEqual(second[-3:-1], [f"set ForgeRunDone to {stamp}", "save ForgePlaytestResult"])
         self.assertTrue(second[-1].startswith('message "Forge: checks done'), "tells Yuri to quit when ready")
         self.assertEqual([c["command"] for c in m["chunks"]], ["bat fpt1", "bat fpt2"])
+        self.assertEqual(m["results"]["checks"], {"2": "ForgeR01", "3": "ForgeR02", "6": "ForgeR03"})
+
+    def test_references_without_an_editor_id_are_refused(self):
+        plan = mf.parse_plan({"steps": [{"check": {"ref": "0300081A", "fn": "GetAV", "args": ["Health"],
+                                                   "expect": "> 0"}}]})
+        with self.assertRaises(mf.ManifestError):
+            mf.build(plan, forms(), location=LOC, bring=[], plugin="x.esp", spec=None, run_id="r")
 
     def test_exterior_location_moves_to_the_marker_and_probes_the_worldspace(self):
         loc = dict(LOC, key="street", boot="cow ICMarketDistrict 10 6", moveto="0000C002", cell_edid=None,
@@ -71,12 +82,12 @@ class ManifestTests(unittest.TestCase):
         lines = manifest(location=loc)["chunks"][0]["lines"]
         self.assertEqual(lines[3], "player.moveto 0000C002")
         self.assertNotIn("0000C002.", " ".join(lines))
-        self.assertIn("player.GetInWorldspace ICMarketDistrict", lines)
+        self.assertIn("set ForgeRInPlace to player.GetInWorldspace ICMarketDistrict", lines)
 
     def test_cell_arguments_stay_editor_ids(self):
         st = mf.parse_plan({"steps": [{"check": {"fn": "GetInCell", "args": ["ForgeStreet"], "expect": "== 1"}}]})
         m = mf.build(st, forms(), location=LOC, bring=[], plugin="x.esp", spec=None, run_id="r")
-        self.assertIn("player.GetInCell ForgeStreet", m["chunks"][0]["lines"])
+        self.assertIn("set ForgeR01 to player.GetInCell ForgeStreet", m["chunks"][0]["lines"])
 
     def test_batch_files_are_crlf_cp1252(self):
         import tempfile
@@ -179,6 +190,29 @@ class LogTests(unittest.TestCase):
 
     def test_wrong_cell_fails(self):
         self.assertEqual(self.judge(log_text(manifest(), in_cell=0.0))["verdict"], "FAIL")
+
+    def test_printtofile_output_without_line_breaks(self):
+        m = manifest()
+        self.assertEqual(self.judge(log_text(m).replace("\n", " "))["verdict"], "PASS")
+
+    def test_sentinel_means_no_value(self):
+        m = manifest()
+        r = self.judge(log_text(m, health_after=-99999.0))
+        self.assertEqual(r["verdict"], "FAIL")
+        self.assertIn("no value", testlog.report_text(r))
+
+    def test_values_from_the_result_save(self):
+        m = manifest()
+        stamp = float(m["results"]["stamp"])
+        values = {"ForgeRunStamp": stamp, "ForgeRunDone": stamp, "ForgeRInPlace": 1.0,
+                  "ForgeR01": 1.0, "ForgeR02": 500.0, "ForgeR03": 475.0}
+        import tempfile
+        p = Path(tempfile.mkdtemp()) / "l.log"
+        p.write_text(testlog.log_from_globals(m, values))
+        self.assertEqual(testlog.evaluate(m, p)["verdict"], "PASS")
+        values["ForgeRunDone"] = 0.0                     # the last batch never ran
+        p.write_text(testlog.log_from_globals(m, values))
+        self.assertEqual(testlog.evaluate(m, p)["verdict"], "FAIL")
 
     def test_echoed_printc_commands_are_ignored(self):
         m = manifest()

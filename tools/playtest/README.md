@@ -101,11 +101,17 @@ The boot itself:
      arrival spot was behind the Arena gate.
    - It brings the test actors next to you, checks where you are (`GetInCell` / `GetInWorldspace`), and
      runs the steps.
-   - Other references are always addressed as `prid <FormID>` followed by the command: Oblivion's
-     console rejects `<FormID>.Command` (run 5: `Script command "0C00080A.GetAV" not found`).
-   - Logging is turned on with both `con_SCOF` and `scof`. Run 5 found neither file on the PC, so
-     after the game exits forge also looks for **any** new .log/.txt under the game folder or
-     `My Games\Oblivion` with this run's BEGIN marker (e.g. from an OBSE console-logging plugin).
+   - References are named by their **EditorID** (`ForgeArenaDummyRef.GetAV Health`). Each batch line
+     is compiled as a one-line script, and scripts name persistent references that way. Two other
+     forms don't work in a batch: `<FormID>.Command` (run 5: "Script command not found") and `prid`
+     (run 6: the next batch line ignores the selection).
+   - Results take two routes:
+     1. Each check value goes into a result global from `ForgeTestCells.esp`. The global is first
+        set to a sentinel, so a failed line never counts as a value.
+     2. xOBSE's `PrintToFile` writes the markers and values to `forge_test.log`; `scof` doesn't exist
+        in this xOBSE (run 6). After the game exits, forge looks for that log in the game folder and
+        `My Games\Oblivion`. If it has no values, forge reads the result globals from the
+        `ForgePlaytestResult` save that the last batch made.
    - The console is photographed after every batch (`shots\NN-output-fptN.png`) as evidence.
    - The last batch shows the "quit when ready" message in game.
 6. Boot time is measured from the command to "loaded, player in control". The target is 30 s, once
@@ -160,9 +166,9 @@ Names resolve to console FormIDs in the test load order (EditorIDs from the mod 
 
 **How it runs in game.** Oblivion can't read JSON, and an OBSE quest compiled per manifest would
 need the Construction Set on every run. So `playtest_manifest.json` is compiled into console batch
-files instead: one per `wait`, run with vanilla `bat`. The first batch turns on `scof forge_test.log`,
-so every console result lands in the log. xOBSE's `PrintC` writes a `FORGE|STEP|n` marker before
-each step. `forge test` judges the log. A run passes only if:
+files instead: one per `wait`, run with vanilla `bat`. Markers and values reach `forge_test.log` via
+xOBSE's `PrintToFile`, or via the result save's globals (see above). `forge test` judges the
+result. A run passes only if:
 - the BEGIN marker matches the manifest's run id;
 - `GetInCell` returned 1;
 - every check has a value that meets its expectation;

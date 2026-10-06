@@ -57,9 +57,10 @@ class RunnerTests(MachineCase):
         self.assertEqual(p.killed, [])
         self.assertTrue(p.game.messages and "quit the game when you are ready" in p.game.messages[-1])
         self.assertTrue(any("Quit the game with the pad" in l for l in self.logs))
-        i = hist.index("moveto player 0 600 0")
-        self.assertTrue(hist[i - 1].startswith("prid "), "dummy picked with prid, then brought to the player")
-        self.assertFalse([h for h in hist if re.match(r"^[0-9A-F]{8}\.", h)], "no <FormID>.Command lines")
+        self.assertIn("ForgeArenaDummyRef.moveto player 0 600 0", hist, "dummy brought to the player by EditorID")
+        self.assertFalse([h for h in hist if re.match(r"^[0-9A-F]{8}\.", h) or h.startswith("prid")])
+        self.assertEqual(res["log_source"], str(self.m.game_dir / "forge_test.log"))
+        self.assertFalse(list(self.m.save_dir.glob("ForgePlaytestResult.*")), "result save removed")
         self.assertFalse([h for h in hist if h.startswith("GAME KEYS")], "typed into the game, not the console")
         run = Path(res["run_dir"])
         shots = sorted(x.name for x in (run / "shots").iterdir())
@@ -81,18 +82,31 @@ class RunnerTests(MachineCase):
         self.assertEqual([x for x in plugins if x.endswith((".esm", ".esp"))],
                          ["Oblivion.esm", "DLCShiveringIsles.esp", "ForgeExampleFirebolt.esp", "ForgeTestCells.esp"])
 
-    def test_log_from_a_console_logging_plugin_is_found(self):
-        self.with_save()
-        p = self.fake(logger="conscribe")
-        res = runner.run(EXAMPLE, self.opts(), self.m, p)
-        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
-        self.assertIn("ConScribe Logs", res["log_source"])
-
-    def test_no_log_anywhere_is_not_a_pass(self):
+    def test_without_any_log_file_the_result_save_decides(self):
         self.with_save()
         res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="none"))
+        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
+        self.assertIn("result save", res["log_source"])
+        self.assertEqual(res["save_values"]["ForgeRInPlace"], 1.0)
+        self.assertRealSetupUntouched()
+
+    def test_a_log_with_markers_only_falls_back_to_the_result_save(self):
+        self.with_save()
+        res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="conscribe"))
+        self.assertEqual(res["verdict"], "PASS", json.dumps(res, indent=1))
+        self.assertIn("result save", res["log_source"])
+
+    def test_no_log_and_no_result_save_is_not_a_pass(self):
+        self.with_save()
+        import playtest.tests.fakegame as fg
+        old = fg.FakeGame._save
+        fg.FakeGame._save = lambda self_, name: None
+        try:
+            res = runner.run(EXAMPLE, self.opts(), self.m, self.fake(logger="none"))
+        finally:
+            fg.FakeGame._save = old
         self.assertEqual(res["verdict"], "NOT-RUN")
-        self.assertRealSetupUntouched(gog_too=False)
+        self.assertRealSetupUntouched()
 
     def test_street_is_a_real_exterior(self):
         self.with_save()
@@ -125,7 +139,9 @@ class RunnerTests(MachineCase):
         res = runner.make_save(self.opts(), self.m, p)
         self.assertTrue(res["made"], res)
         self.assertEqual(sorted(f.name for f in self.m.save_dir.iterdir()), ["ForgePlaytestBase.ess"])
-        self.assertEqual((self.m.save_dir / "ForgePlaytestBase.ess").read_bytes(), b"save", "replaced by the new one")
+        self.assertNotEqual((self.m.save_dir / "ForgePlaytestBase.ess").read_bytes(), b"old good save",
+                            "replaced by the new one")
+        self.assertEqual(res["save_in_place"], 1.0, "location confirmed by the new save's own global")
         hist = p.game.history
         self.assertLess(hist.index("coc ICArena"), hist.index("save ForgePlaytestNew"))
         self.assertNotIn("qqq", hist)
@@ -155,24 +171,6 @@ class RunnerTests(MachineCase):
         self.assertIn("not confirmed", res["error"])
         self.assertEqual((self.m.save_dir / "ForgePlaytestBase.ess").read_bytes(), b"old good save")
         self.assertFalse(list(self.m.save_dir.glob("ForgePlaytestNew.*")))
-        self.assertRealSetupUntouched()
-
-    def test_make_save_without_a_log_keeps_the_save_with_a_warning(self):
-        p = self.fake(new_game_after=20.0, chargen_seconds=30.0, continue_after=None)
-        import playtest.tests.fakegame as fg
-        old_run = fg.FakeGame.run
-
-        def run(self_, cmd):
-            if cmd.lower().startswith(("scof", "con_scof")):
-                return None                                  # scof writes nowhere we can see
-            return old_run(self_, cmd)
-        fg.FakeGame.run = run
-        try:
-            res = runner.make_save(self.opts(), self.m, p)
-        finally:
-            fg.FakeGame.run = old_run
-        self.assertTrue(res["made"], res)
-        self.assertIn("not confirmed", res["warning"])
         self.assertRealSetupUntouched()
 
     def test_save_from_before_chargen_is_reported(self):
