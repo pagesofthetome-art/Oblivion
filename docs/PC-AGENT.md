@@ -4,6 +4,8 @@ You are the local Claude on Yuri's PC. The repo clone is `C:\Users\Shadow\Deskto
 
 ## Current handoff
 
+Always also saved, self-contained, as [`docs/PC-HANDOFF-CURRENT.md`](PC-HANDOFF-CURRENT.md).
+
 | | |
 |---|---|
 | **Do now** | [`docs/20-forge-phase3a-pc-handoff.md`](20-forge-phase3a-pc-handoff.md): phase 3a. Layout proof on vanilla SPEL/MGEF/ENCH/ALCH/INGR/SGST, build the Searing Bolt spec, CS bridge path check. Read-only on the game. |
