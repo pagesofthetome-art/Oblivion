@@ -12,6 +12,12 @@
     forge script-decode <plugin|corpus>     decompile every script's SCDA; survey or --show EDID (read-only)
     forge script-check <plugin|corpus>      compile every script's source, compare bytes with its SCDA
 
+Playtest (tools/playtest, see its README):
+    forge playtest <spec|esp> [--cell arena|street|open] [--quit] [--dry-run]   quick-boot test + checks
+    forge playtest restore|status|cells     put the real Plugins.txt/ini back, show state, build the cells
+    forge test [RUN_DIR] [--json]           report of the last (or a given) playtest run
+    forge preview <spec|esp|cells> [--open] browser preview of the test cell / the mod's placed objects
+
 Wrapped tools (arguments pass straight through):
     forge lint|info|records|conflicts|load-order|find ...   -> tools/modlint.py
     forge xedit ...                                          -> tools/xedit_run.py
@@ -590,6 +596,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("layout-check", help="re-encode every SPEL/MGEF (or --sig X) byte for byte")
     sub.add_parser("script-check", help="compile every script and compare: forge script-check <plugin|corpus>")
     sub.add_parser("script-decode", help="decompile scripts: forge script-decode <plugin|corpus> [--show EDID]")
+    from playtest import cli as playtest_cli
+    playtest_cli.register(sub)
     for name in sorted(MODLINT_CMDS | set(WRAPPED)):
         sub.add_parser(name, help="wrapped tool; arguments pass through")
     a = ap.parse_args(argv)
